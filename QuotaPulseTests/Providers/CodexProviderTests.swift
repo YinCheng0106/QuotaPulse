@@ -1,0 +1,314 @@
+import Foundation
+import XCTest
+@testable import QuotaPulse
+
+final class CodexProviderTests: XCTestCase {
+    func testValidUsageResponseIncludesNormalizedAvailabilityAndLastUpdatedTime() async throws {
+        let capturedAt = Date(timeIntervalSince1970: 2_000_000_000)
+        let response = CodexRateLimitsResult(
+            rateLimits: CodexRateLimitBucket(
+                limitId: "codex",
+                limitName: nil,
+                primary: CodexRateLimitWindow(
+                    usedPercent: 37.5,
+                    windowDurationMins: 300,
+                    resetsAt: 2_000_003_600
+                ),
+                secondary: nil
+            ),
+            rateLimitsByLimitId: nil
+        )
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(result: .success(response)),
+            now: { capturedAt },
+            locale: Locale(identifier: "en")
+        )
+        let service = UsageService(providers: [provider])
+
+        let states = await service.refresh()
+        let state = try XCTUnwrap(states.first)
+        let window = try XCTUnwrap(state.snapshot?.windows.first)
+
+        XCTAssertEqual(state.status, .available)
+        XCTAssertEqual(state.lastUpdatedAt, capturedAt)
+        XCTAssertEqual(window.usedPercentage, 37.5)
+        XCTAssertEqual(window.remainingPercentage, 62.5)
+        XCTAssertEqual(window.resetAt, Date(timeIntervalSince1970: 2_000_003_600))
+    }
+
+    func testMapsMultiBucketResponseWithoutGuessingMissingWindows() async throws {
+        let capturedAt = Date(timeIntervalSince1970: 2_000_000_000)
+        let response = CodexRateLimitsResult(
+            rateLimits: nil,
+            rateLimitsByLimitId: [
+                "codex": CodexRateLimitBucket(
+                    limitId: "codex",
+                    limitName: nil,
+                    primary: CodexRateLimitWindow(
+                        usedPercent: 37.5,
+                        windowDurationMins: 300,
+                        resetsAt: 2_000_003_600
+                    ),
+                    secondary: nil
+                ),
+                "codex_other": CodexRateLimitBucket(
+                    limitId: "codex_other",
+                    limitName: "Other limit",
+                    primary: CodexRateLimitWindow(
+                        usedPercent: 8,
+                        windowDurationMins: 60,
+                        resetsAt: 2_000_007_200
+                    ),
+                    secondary: CodexRateLimitWindow(
+                        usedPercent: 12,
+                        windowDurationMins: 10_080,
+                        resetsAt: 2_000_604_800
+                    )
+                )
+            ]
+        )
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(result: .success(response)),
+            now: { capturedAt },
+            locale: Locale(identifier: "en")
+        )
+
+        let snapshot = try await provider.fetchUsage()
+
+        XCTAssertEqual(snapshot.providerID, .codex)
+        XCTAssertEqual(snapshot.capturedAt, capturedAt)
+        XCTAssertEqual(snapshot.source.kind, .codexAppServer)
+        XCTAssertEqual(snapshot.windows.map(\.id), [
+            "codex.codex.primary",
+            "codex.codex_other.primary",
+            "codex.codex_other.secondary"
+        ])
+        XCTAssertEqual(snapshot.windows[0].usedPercentage, 37.5)
+        XCTAssertEqual(snapshot.windows[0].duration, .seconds(18_000))
+        XCTAssertEqual(snapshot.windows[0].resetAt, Date(timeIntervalSince1970: 2_000_003_600))
+        XCTAssertEqual(snapshot.windows[2].label, "Other limit · Secondary window")
+    }
+
+    func testUsesMultiBucketDictionaryKeysForStableUniqueWindowIDs() async throws {
+        let window = CodexRateLimitWindow(
+            usedPercent: 10,
+            windowDurationMins: 60,
+            resetsAt: nil
+        )
+        let response = CodexRateLimitsResult(
+            rateLimits: nil,
+            rateLimitsByLimitId: [
+                "codex": CodexRateLimitBucket(
+                    limitId: "duplicated",
+                    limitName: nil,
+                    primary: window,
+                    secondary: nil
+                ),
+                "codex_other": CodexRateLimitBucket(
+                    limitId: "duplicated",
+                    limitName: nil,
+                    primary: window,
+                    secondary: nil
+                )
+            ]
+        )
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(result: .success(response))
+        )
+
+        let snapshot = try await provider.fetchUsage()
+
+        XCTAssertEqual(snapshot.windows.map(\.id), [
+            "codex.codex.primary",
+            "codex.codex_other.primary"
+        ])
+    }
+
+    func testFallsBackToBackwardCompatibleSingleBucket() async throws {
+        let response = CodexRateLimitsResult(
+            rateLimits: CodexRateLimitBucket(
+                limitId: "codex",
+                limitName: nil,
+                primary: CodexRateLimitWindow(
+                    usedPercent: 140,
+                    windowDurationMins: 15,
+                    resetsAt: nil
+                ),
+                secondary: nil
+            ),
+            rateLimitsByLimitId: nil
+        )
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(result: .success(response))
+        )
+
+        let snapshot = try await provider.fetchUsage()
+
+        XCTAssertEqual(snapshot.windows.count, 1)
+        XCTAssertEqual(snapshot.windows[0].usedPercentage, 140)
+        XCTAssertEqual(snapshot.windows[0].displayUsedPercentage, 100)
+        XCTAssertNil(snapshot.windows[0].resetAt)
+    }
+
+    func testPreservesUnavailableOptionalFieldsWithoutGuessing() async throws {
+        let response = CodexRateLimitsResult(
+            rateLimits: CodexRateLimitBucket(
+                limitId: nil,
+                limitName: nil,
+                primary: CodexRateLimitWindow(
+                    usedPercent: 20,
+                    windowDurationMins: nil,
+                    resetsAt: nil
+                ),
+                secondary: nil
+            ),
+            rateLimitsByLimitId: nil
+        )
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(result: .success(response))
+        )
+
+        let snapshot = try await provider.fetchUsage()
+        let window = try XCTUnwrap(snapshot.windows.first)
+
+        XCTAssertEqual(window.usedPercentage, 20)
+        XCTAssertEqual(window.remainingPercentage, 80)
+        XCTAssertNil(window.duration)
+        XCTAssertNil(window.resetAt)
+        XCTAssertEqual(snapshot.windows.count, 1)
+    }
+
+    func testParsesResetTimestampAsUnixSeconds() async throws {
+        let resetTimestamp: TimeInterval = 2_000_003_600.5
+        let response = CodexRateLimitsResult(
+            rateLimits: CodexRateLimitBucket(
+                limitId: "codex",
+                limitName: nil,
+                primary: CodexRateLimitWindow(
+                    usedPercent: 10,
+                    windowDurationMins: 300,
+                    resetsAt: resetTimestamp
+                ),
+                secondary: nil
+            ),
+            rateLimitsByLimitId: nil
+        )
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(result: .success(response))
+        )
+
+        let snapshot = try await provider.fetchUsage()
+
+        XCTAssertEqual(
+            snapshot.windows.first?.resetAt,
+            Date(timeIntervalSince1970: resetTimestamp)
+        )
+    }
+
+    func testUnavailableExecutableMapsToNotInstalledState() async {
+        let provider = CodexProvider(
+            locator: CodexExecutableLocator(candidateURLs: [
+                URL(fileURLWithPath: "/path/that/does/not/exist/codex")
+            ])
+        )
+        let service = UsageService(providers: [provider])
+
+        let states = await service.refresh()
+
+        XCTAssertEqual(states.first?.status, .notInstalled)
+        XCTAssertNil(states.first?.snapshot)
+    }
+
+    func testProviderFailureMapsToSanitizedErrorState() async {
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(
+                result: .failure(CodexAppServerError.serverError(code: -32_603))
+            )
+        )
+        let service = UsageService(providers: [provider])
+
+        let states = await service.refresh()
+
+        XCTAssertEqual(
+            states.first?.status,
+            .failed(.refreshFailed)
+        )
+        XCTAssertNil(states.first?.snapshot)
+    }
+
+    func testAppServerLaunchFailureHasDistinctNormalizedState() async {
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(
+                result: .failure(CodexAppServerError.launchFailed)
+            )
+        )
+        let service = UsageService(providers: [provider])
+
+        let states = await service.refresh()
+
+        XCTAssertEqual(states.first?.status, .failed(.runtimeLaunchFailed))
+        XCTAssertNil(states.first?.snapshot)
+    }
+
+    func testPreservesResetOnlyWindowWithoutFabricatingUsage() async throws {
+        let response = CodexRateLimitsResult(
+            rateLimits: CodexRateLimitBucket(
+                limitId: "codex",
+                limitName: nil,
+                primary: CodexRateLimitWindow(
+                    usedPercent: nil,
+                    windowDurationMins: 300,
+                    resetsAt: 2_000_003_600
+                ),
+                secondary: nil
+            ),
+            rateLimitsByLimitId: nil
+        )
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(result: .success(response))
+        )
+
+        let snapshot = try await provider.fetchUsage()
+
+        XCTAssertEqual(snapshot.windows.count, 1)
+        XCTAssertNil(snapshot.windows[0].usedPercentage)
+        XCTAssertEqual(
+            snapshot.windows[0].resetAt,
+            Date(timeIntervalSince1970: 2_000_003_600)
+        )
+    }
+
+    func testRejectsResponseWithoutUsageOrResetData() async {
+        let response = CodexRateLimitsResult(
+            rateLimits: CodexRateLimitBucket(
+                limitId: "codex",
+                limitName: nil,
+                primary: CodexRateLimitWindow(
+                    usedPercent: nil,
+                    windowDurationMins: 300,
+                    resetsAt: nil
+                ),
+                secondary: nil
+            ),
+            rateLimitsByLimitId: nil
+        )
+        let provider = CodexProvider(
+            reader: StubCodexRateLimitsReader(result: .success(response))
+        )
+
+        do {
+            _ = try await provider.fetchUsage()
+            XCTFail("Expected the provider to reject a response without usage or reset data")
+        } catch {
+            XCTAssertEqual(error as? CodexProviderError, .noRateLimits)
+        }
+    }
+}
+
+private struct StubCodexRateLimitsReader: CodexRateLimitsReading {
+    let result: Result<CodexRateLimitsResult, Error>
+
+    func readRateLimits() async throws -> CodexRateLimitsResult {
+        try result.get()
+    }
+}

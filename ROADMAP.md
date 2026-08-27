@@ -1,0 +1,163 @@
+# QuotaPulse 路線圖
+
+本路線圖以成果為導向。在平臺基準與即時 provider 整合驗證完成前，刻意不承諾日期。
+
+## Milestone 0 — 規劃基準
+
+狀態：已完成
+
+- 定義 v0.1 範圍與非目標
+- 評估 Codex 與 Claude Code 資料來源
+- 定義 provider、service、隱私與 Reset Intelligence 邊界
+- 記錄檔案結構與未解決的散布、整合決策
+- 建立英文國際版 README 與臺灣繁中維護文件
+
+完成條件：
+
+- `README.md`、`README.zh-TW.md`、`ARCHITECTURE.md`、`ROADMAP.md` 與 `AGENTS.md` 對範圍和資料來源策略一致
+- 在架構與隱私邊界確認前，沒有提早實作即時 provider
+
+## Milestone 1 — 基礎與 mock 垂直切片
+
+狀態：已完成；後續發行稽核結果集中記錄於 `docs/RELEASE_CHECKLIST.md`
+
+- 確認目前最低版本為 macOS 14，採直接散布作為待驗證假設
+- 使用 XCTest 建立 macOS App 與單元測試 targets
+- 建立純選單列 `MenuBarExtra(.window)` App 與 Settings scene
+- 實作與 provider 無關的 domain models 與 `UsageProvider`
+- 實作 `UsageService`、可合併重複工作的 `RefreshCoordinator` 與 `@MainActor AppModel`
+- 以固定 mock adapters 顯示 Codex 與 Claude Code 卡片
+- 顯示多個額度視窗、剩餘百分比、重設時間與分鐘級倒數
+- 透過可注入 `NotificationService` 提供由使用者觸發的測試通知
+- Milestone 1 原始切片沒有週期性輪詢；後續 refresh lifecycle 已加入單一保守排程，仍沒有 backend、persistence 或第三方相依套件
+
+已驗證：
+
+- Debug build 成功
+- Release build 成功，且產物的 `LSUIElement` 為 `true`
+- 6 項單元測試通過
+- 重複 refresh request 只共用一個 in-flight refresh
+- 倒數使用一分鐘粒度的 `TimelineView`，沒有全域一秒 timer
+- 一次啟動約 11 秒後的 Release smoke snapshot 為 0.1% CPU、75,696 KB RSS；這不是穩定效能結論，且尚未達到理想的 50 MB 以下目標
+- Milestone 2 的 UI 串接尚未實作；後續限定範圍的 Codex discovery 與 provider core 狀態見下節
+
+仍需在 v0.1 發行前完成：
+
+- 以 VoiceOver 與純鍵盤手動檢查完整選單流程
+- 驗證亮色、暗色與窄版選單配置
+- 用 Activity Monitor 或 Instruments 進行可重複的 Release build 長時間閒置量測
+- 真實系統通知送達、Developer ID signing 與 notarization 驗證
+
+## Milestone 2 — 即時 Codex adapter
+
+狀態：v0.1 核心已完成；ChatGPT 整合 runtime 已完成本機 live validation，跨版本相容性仍是持續驗證項目
+
+- 已依序從標準／`NSWorkspace` 發現的 ChatGPT.app 整合 runtime、舊 Codex.app、常見 CLI locations 與受限 `PATH` 尋找 Codex 執行檔，不啟動 login shell；使用者 override 尚未實作
+- 已實作可取消、具 timeout、輸出上限與 cleanup 的 process boundary
+- 已實作 app-server initialize handshake 與 `account/rateLimits/read`
+- 已支援 single-bucket、multi-bucket、primary 與 secondary response mapping
+- 已區分找不到執行檔、timeout、server 與 protocol errors；UI status mapping、未登入與不支援 authentication 的實際 error-shape 驗證仍待完成
+- 已用 fake process 測試正常 response、健康 connection 重用、並行讀取合併、失敗重連、child reap、shutdown、oversized output 與 timeout；partial 與 out-of-order coverage 仍待補齊
+- 已用 sanitized live probe 驗證 ChatGPT.app bundled `codex-cli 0.149.0-alpha.4.3`；仍須驗證數個正式支援版本
+- 已在本機 production app assembly 驗證真實 Codex snapshot 可到達共用 UI，並以父程序取樣確認單次 refresh 最多只有一個 QuotaPulse app-server child process
+- 已透過 production `AppDependencies`、`UsageProvider` 與 `UsageService` 接入共用 UI state；SwiftUI 不含 Codex-specific rendering branch
+- 量測啟動延遲、尖峰與閒置記憶體，以及 process cleanup
+
+完成條件：
+
+- 不讀取 Codex credential file 即可刷新真實用量
+- 健康時恰有一個 app-server child 供刷新重用；失敗、取消與 App 結束後不殘留
+- provider process 不會與另一個 refresh 重疊
+- 不支援的設定會明確且安全地失敗
+
+未文件化的 session JSONL 備援仍不在範圍內，除非有證據顯示官方 protocol 不足。
+
+Production `AppDependencies` 現在建立 `CodexProvider`；SwiftUI previews 仍使用 mock provider。詳細本機來源評估與 fallback policy 見 `docs/providers/codex.md`。
+
+## Milestone 3 — Claude opt-in bridge
+
+狀態：進行中；usage discovery、版本化 snapshot reader、provider core 與共用應用程式串接已完成，但 bridge setup 與 live validation 尚未實作
+
+- 已定義有版本的最小 Claude snapshot schema
+- 已實作只讀 QuotaPulse-owned snapshot 的 bounded reader；可執行 bridge writer 尚未實作
+- 已偵測本機現有 Claude status-line 設定但未讀取 command value，也未修改設定
+- 設計明確的設定預覽、備份與復原流程
+- 決定 v0.1 是否修改 settings，或只產生人工整合說明
+- 已處理 snapshot missing、partial、stale capture metadata、malformed、oversized 與 future-version data；atomic writer 仍待 bridge 實作
+- 在 UI 清楚說明 Pro/Max 與 first-response availability 限制
+- 已用 redacted fixtures 驗證 provider model 不保存 workspace、transcript、session、repository、cost、token 或 model 欄位
+- 已透過 production `AppDependencies`、`UsageProvider` 與 `UsageService` 接入共用 UI state；snapshot 缺少時顯示 `notConfigured`
+
+Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未產生 snapshot 時，provider 安全回傳 `notConfigured`。SwiftUI previews 仍使用 mock provider。詳細本機來源、版本限制、已知缺欄位風險與 fallback policy 見 `docs/providers/claude-code.md`。
+
+完成條件：
+
+- Claude 額度卡片能由文件化 status-line 欄位更新
+- 絕不靜默取代現有 status line
+- 過期資料有清楚標示，經過 reset time 不會被視為已重設的證明
+- 在全新 profile 與已有 status line 的 profile 測試安裝和復原
+
+## Milestone 4 — 刷新、設定與實用本機提醒
+
+狀態：已完成實作、自動化驗證與發行層級稽核；系統層級項目依 release checklist 人工驗證
+
+- 已完成固定的 v0.1 freshness 與刷新政策；Settings 顯示固定 15 分鐘 cadence，不開放動態 interval
+- 已在啟動時刷新；選單顯示且 snapshot 超過約 3 分鐘時非阻塞刷新；使用者手動要求時立即刷新
+- 已由 `AppModel` 單一擁有約 15 分鐘背景 schedule，並以 1／2／5／15／30 分鐘處理暫時性失敗
+- 已處理 sleep/wake、App activation 與反覆 menu open，不建立重複 refresh loops
+- 已從本輪成功且新鮮的本機 snapshot 依 `UsageWindow.duration` 建立門檻通知：6 小時以下使用 1 小時／30 分鐘，長視窗使用不超過視窗長度的 24／6／1 小時門檻；不從 stale cached data 建立新通知
+- 已以 provider／window／logical reset generation／threshold 去除重複通知，並以最多 32 筆 metadata 保持 persistence bounded
+- 已加入原生 Settings：`SMAppService` Launch at Login、Codex／Claude enablement、通知總開關，以及分組的短視窗 1 小時／30 分鐘與長視窗 24／6／1 小時門檻
+- 已在關閉通知或個別門檻時移除相符的 pending QuotaPulse reset requests；拒絕 system permission 不影響刷新與 UI
+- 已以 typed UserDefaults keys 保存 preferences，Claude 明確標為 Experimental／Unverified，沒有加入 bridge setup
+- 使用 String Catalog 本地化使用者可見字串
+- 完成 VoiceOver、鍵盤、對比與 reduced-motion 檢查
+
+完成條件：
+
+- 使用者拒絕通知時 App 仍然實用
+- 相同 provider window 與 threshold 不會重複通知
+- 單一 provider 錯誤不阻塞其他 providers
+- settings migration 保留既有選擇
+
+## Milestone 5 — v0.1 發行準備
+
+狀態：release-readiness audit 已完成，MIT License 與初始 Git baseline 已完成；公開發行仍受 App Icon、正式簽章與 notarization 阻擋
+
+- 已選擇並加入 MIT License
+- 補齊貢獻、安全性、隱私、建置與發行文件
+- 加入 App icon 與 signed/notarized Release 設定
+- 在乾淨機器測試工具缺少、工具支援、登出、離線與升級情境
+- 用 Instruments 分析反覆開關選單與 30 分鐘閒置 session
+- 檢查 retained objects、timers、child processes、file handles 與 async tasks
+- 驗證閒置記憶體理想上低於 50 MB、閒置 CPU 接近 0%；如有差距就誠實記錄
+- 產生最小 release artifact 與 checksum
+
+完成條件：
+
+- 所有自動與手動 acceptance checks 都有紀錄
+- 沒有已知的 prompt、原始碼、transcript、repository 或 credential 蒐集
+- 即時 provider 驗證與 fixture tests 清楚分開
+- distribution、notarization 與 notification delivery 都有實際測試
+
+## v0.1 之後
+
+### 其他本機 providers
+
+- 研究 Gemini CLI 有文件的本機或程式化 usage surface
+- 研究 OpenCode 有文件的本機或程式化 usage surface
+- 每個 provider 都透過 `UsageProvider` 加入，不更動 UI-domain contract
+
+不得由原始 token totals 推估方案額度。
+
+### Reset Intelligence
+
+- 定義可信來源與 publisher 標準
+- 擷取官方或明確核准的公開公告
+- 保留並顯示原始來源 URL、publisher、publication time 與 retrieval time
+- 區分已確認公告、可信報導、更正與過期事件
+- 在不上傳本機 usage snapshot 的前提下，提醒仍有大量未使用額度
+- 設計來源更正與撤回處理
+- 為所有網路服務進行獨立隱私審查
+
+Reset Intelligence 必須與本機 provider adapters 分離，也不得以未經審查的 v0.1 network call 偷渡進產品。

@@ -1,0 +1,381 @@
+import Foundation
+import UserNotifications
+
+@MainActor
+protocol NotificationServicing: AnyObject {
+    func evaluate(_ providerStates: [ProviderState], now: Date) async
+    func authorizationStatus() async -> NotificationAuthorizationStatus
+    func preferencesDidChange() async
+
+    #if DEBUG
+    func sendTestNotification() async throws
+    func updateRuntimeDiagnostics() async
+    #endif
+}
+
+extension NotificationServicing {
+    func authorizationStatus() async -> NotificationAuthorizationStatus { .notDetermined }
+    func preferencesDidChange() async {}
+
+    #if DEBUG
+    func updateRuntimeDiagnostics() async {}
+    #endif
+}
+
+#if DEBUG
+enum NotificationServiceError: LocalizedError {
+    case authorizationDenied
+
+    var errorDescription: String? {
+        switch self {
+        case .authorizationDenied:
+            String(localized: "Notification permission was not granted.")
+        }
+    }
+}
+#endif
+
+enum NotificationAuthorizationStatus: Equatable, Sendable {
+    case notDetermined
+    case denied
+    case authorized
+}
+
+struct LocalNotificationRequest: Equatable, Sendable {
+    let identifier: String
+    let title: String
+    let body: String
+    let delay: TimeInterval
+}
+
+@MainActor
+protocol UserNotificationCentering: AnyObject {
+    func authorizationStatus() async -> NotificationAuthorizationStatus
+    func requestAuthorization() async throws -> Bool
+    func add(_ request: LocalNotificationRequest) async throws
+    func removePendingRequests(withIdentifiers identifiers: [String])
+    func pendingRequestIdentifiers() async -> [String]
+}
+
+extension UserNotificationCentering {
+    func pendingRequestIdentifiers() async -> [String] { [] }
+}
+
+@MainActor
+protocol NotificationStateStoring: AnyObject {
+    func load() -> NotificationDeduplicationState
+    func save(_ state: NotificationDeduplicationState)
+}
+
+@MainActor
+final class NotificationService: NotificationServicing {
+    private let center: any UserNotificationCentering
+    private let stateStore: any NotificationStateStoring
+    private let policy: ResetNotificationPolicy
+    private let currentDate: @Sendable () -> Date
+    private let locale: Locale
+    private weak var preferences: (any AppPreferencesProviding)?
+    private var evaluationGeneration: UInt64 = 0
+    private var authorizationRequestTask: Task<Bool, Never>?
+    private var hasRemovedLegacyPendingRequests = false
+
+    init(
+        center: any UserNotificationCentering = UserNotificationCenterClient(),
+        stateStore: any NotificationStateStoring = UserDefaultsNotificationStateStore(),
+        policy: ResetNotificationPolicy = .v01,
+        preferences: (any AppPreferencesProviding)? = nil,
+        currentDate: @escaping @Sendable () -> Date = Date.init,
+        locale: Locale = .autoupdatingCurrent
+    ) {
+        self.center = center
+        self.stateStore = stateStore
+        self.policy = policy
+        self.preferences = preferences
+        self.currentDate = currentDate
+        self.locale = locale
+    }
+
+    func evaluate(_ providerStates: [ProviderState], now: Date) async {
+        await removeLegacyPendingRequestsIfNeeded()
+        let notificationPreferences = preferences?.notificationPreferences ?? .defaults
+        guard notificationPreferences.isEnabled else { return }
+        let enabledStates: [ProviderState]
+        if let preferences {
+            enabledStates = providerStates.filter { preferences.isProviderEnabled($0.providerID) }
+        } else {
+            enabledStates = providerStates
+        }
+
+        evaluationGeneration &+= 1
+        let generation = evaluationGeneration
+        let evaluationStartedAt = currentDate()
+        let evaluation = policy.evaluate(
+            enabledStates,
+            state: stateStore.load(),
+            now: now,
+            enabledThresholdMinutes: notificationPreferences.enabledThresholdMinutes,
+            locale: locale
+        )
+        stateStore.save(evaluation.state)
+
+        guard !evaluation.decisions.isEmpty else { return }
+        guard (try? await isAuthorized(requestIfNeeded: true)) == true else { return }
+        guard generation == evaluationGeneration, !Task.isCancelled else { return }
+
+        // Authorization may leave the task suspended while the user decides. Re-run the
+        // policy so a newer evaluation, a passed reset, or newly stale usage cannot send.
+        let elapsed = max(currentDate().timeIntervalSince(evaluationStartedAt), 0)
+        let deliveryNow = now.addingTimeInterval(elapsed)
+        let deliveryEvaluation = policy.evaluate(
+            enabledStates,
+            state: stateStore.load(),
+            now: deliveryNow,
+            enabledThresholdMinutes: notificationPreferences.enabledThresholdMinutes,
+            locale: locale
+        )
+        stateStore.save(deliveryEvaluation.state)
+
+        for decision in deliveryEvaluation.decisions {
+            guard generation == evaluationGeneration, !Task.isCancelled else { return }
+
+            var latestState = stateStore.load()
+            // Claim before adding so an App restart cannot resend the same threshold.
+            // A scheduling failure may drop this one reminder, but preserves at-most-once delivery.
+            latestState.markEmitted(decision)
+            stateStore.save(latestState)
+
+            let request = LocalNotificationRequest(
+                identifier: decision.identifier,
+                title: decision.title,
+                body: decision.body,
+                delay: 1
+            )
+            try? await center.add(request)
+        }
+    }
+
+    func authorizationStatus() async -> NotificationAuthorizationStatus {
+        await center.authorizationStatus()
+    }
+
+    func preferencesDidChange() async {
+        evaluationGeneration &+= 1
+        let notificationPreferences = preferences?.notificationPreferences ?? .defaults
+        let identifiers = await center.pendingRequestIdentifiers().filter {
+            $0.hasPrefix("quotapulse.reset.")
+        }
+        let identifiersToRemove: [String]
+        if notificationPreferences.isEnabled {
+            identifiersToRemove = identifiers.filter { identifier in
+                guard let threshold = resetThreshold(from: identifier) else {
+                    return isLegacyResetIdentifier(identifier)
+                }
+                return !notificationPreferences
+                    .thresholds(for: threshold.windowClass)
+                    .contains(threshold.minutes)
+            }
+        } else {
+            identifiersToRemove = identifiers
+        }
+        if !identifiersToRemove.isEmpty {
+            center.removePendingRequests(withIdentifiers: identifiersToRemove)
+        }
+    }
+
+    #if DEBUG
+    func sendTestNotification() async throws {
+        guard try await isAuthorized(requestIfNeeded: true) else {
+            throw NotificationServiceError.authorizationDenied
+        }
+
+        let request = LocalNotificationRequest(
+            identifier: "quotapulse.test-notification",
+            title: AppLocalization.string("QuotaPulse", locale: locale),
+            body: AppLocalization.string("Local notifications are ready.", locale: locale),
+            delay: 5
+        )
+        center.removePendingRequests(withIdentifiers: [request.identifier])
+        try await center.add(request)
+    }
+
+    func updateRuntimeDiagnostics() async {
+        let pendingCount = await center.pendingRequestIdentifiers().count {
+            $0.hasPrefix("quotapulse.")
+        }
+        RuntimeDiagnostics.shared.notificationsUpdated(
+            pendingCount: pendingCount,
+            deduplicationEntryCount: stateStore.load().entries.count
+        )
+    }
+    #endif
+
+    private func isAuthorized(requestIfNeeded: Bool) async throws -> Bool {
+        switch await center.authorizationStatus() {
+        case .authorized:
+            return true
+        case .denied:
+            return false
+        case .notDetermined:
+            guard requestIfNeeded else { return false }
+            if let authorizationRequestTask {
+                return await authorizationRequestTask.value
+            }
+
+            let center = center
+            let task = Task { @MainActor in
+                (try? await center.requestAuthorization()) == true
+            }
+            authorizationRequestTask = task
+            let isAuthorized = await task.value
+            authorizationRequestTask = nil
+            return isAuthorized
+        }
+    }
+
+    private func removeLegacyPendingRequestsIfNeeded() async {
+        guard !hasRemovedLegacyPendingRequests else { return }
+        hasRemovedLegacyPendingRequests = true
+        let identifiers = await center.pendingRequestIdentifiers().filter(
+            isLegacyResetIdentifier
+        )
+        guard !identifiers.isEmpty else { return }
+        center.removePendingRequests(withIdentifiers: identifiers)
+    }
+
+    private func isLegacyResetIdentifier(_ identifier: String) -> Bool {
+        guard identifier.hasPrefix("quotapulse.reset.") else { return false }
+        guard let suffix = identifier.split(separator: ".").last else { return false }
+        return suffix.hasSuffix("h")
+    }
+
+    private func resetThreshold(
+        from identifier: String
+    ) -> (windowClass: NotificationWindowClass, minutes: Int)? {
+        guard identifier.hasPrefix("quotapulse.reset.") else { return nil }
+        let components = identifier.split(separator: ".")
+        guard components.count >= 2 else { return nil }
+        let minuteComponent = components[components.count - 1]
+        let windowClassComponent = components[components.count - 2]
+        guard
+            minuteComponent.hasSuffix("m"),
+            let minutes = Int(minuteComponent.dropLast()),
+            let windowClass = NotificationWindowClass(rawValue: String(windowClassComponent))
+        else {
+            return nil
+        }
+        return (windowClass, minutes)
+    }
+}
+
+private final class NotificationPresentationDelegate: NSObject, UNUserNotificationCenterDelegate {
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        [.banner, .sound]
+    }
+}
+
+@MainActor
+final class UserNotificationCenterClient: UserNotificationCentering {
+    private let center: UNUserNotificationCenter
+    private let presentationDelegate: NotificationPresentationDelegate
+
+    init(center: UNUserNotificationCenter = .current()) {
+        self.center = center
+        let presentationDelegate = NotificationPresentationDelegate()
+        self.presentationDelegate = presentationDelegate
+        center.delegate = presentationDelegate
+    }
+
+    func authorizationStatus() async -> NotificationAuthorizationStatus {
+        let settings = await center.notificationSettings()
+        switch settings.authorizationStatus {
+        case .notDetermined:
+            return .notDetermined
+        case .denied:
+            return .denied
+        case .authorized, .provisional, .ephemeral:
+            return .authorized
+        @unknown default:
+            return .denied
+        }
+    }
+
+    func requestAuthorization() async throws -> Bool {
+        try await center.requestAuthorization(options: [.alert, .sound])
+    }
+
+    func add(_ request: LocalNotificationRequest) async throws {
+        let content = UNMutableNotificationContent()
+        content.title = request.title
+        content.body = request.body
+        content.sound = .default
+
+        let trigger = UNTimeIntervalNotificationTrigger(
+            timeInterval: max(request.delay, 1),
+            repeats: false
+        )
+        try await center.add(
+            UNNotificationRequest(
+                identifier: request.identifier,
+                content: content,
+                trigger: trigger
+            )
+        )
+    }
+
+    func removePendingRequests(withIdentifiers identifiers: [String]) {
+        center.removePendingNotificationRequests(withIdentifiers: identifiers)
+    }
+
+    func pendingRequestIdentifiers() async -> [String] {
+        await center.pendingNotificationRequests().map(\.identifier)
+    }
+}
+
+@MainActor
+final class UserDefaultsNotificationStateStore: NotificationStateStoring {
+    private static let defaultKey = "notification.deduplication.v1"
+    private static let maximumEncodedStateBytes = 64 * 1_024
+
+    private let defaults: UserDefaults
+    private let key: String
+    private let encoder = JSONEncoder()
+    private let decoder = JSONDecoder()
+
+    init(defaults: UserDefaults = .standard, key: String = defaultKey) {
+        self.defaults = defaults
+        self.key = key
+        encoder.outputFormatting = [.sortedKeys]
+    }
+
+    func load() -> NotificationDeduplicationState {
+        guard
+            let data = defaults.data(forKey: key),
+            data.count <= Self.maximumEncodedStateBytes,
+            let state = try? decoder.decode(NotificationDeduplicationState.self, from: data),
+            state.schemaVersion == NotificationDeduplicationState.currentSchemaVersion
+        else {
+            return NotificationDeduplicationState()
+        }
+        return state
+    }
+
+    func save(_ state: NotificationDeduplicationState) {
+        var boundedState = state
+
+        while let data = try? encoder.encode(boundedState) {
+            if data.count <= Self.maximumEncodedStateBytes {
+                defaults.set(data, forKey: key)
+                return
+            }
+
+            guard !boundedState.entries.isEmpty else {
+                defaults.removeObject(forKey: key)
+                return
+            }
+            boundedState.entries.removeLast()
+        }
+    }
+}

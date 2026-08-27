@@ -1,0 +1,39 @@
+.DS_Store
+DerivedData/
+build/
+.build/
+*.xcresult
+*.xcarchive
+xcuserdata/
+*.xcuserstate
+
+# Local runtime and test diagnostics
+.runtime-diagnostics/
+runtime-diagnostics/
+*.runtime-diagnostics.log
+.notification-test-artifacts/
+notification-test-artifacts/
+*.log
+
+# Local security scan output
+.codex-security-scans/
+codex-security-scans/
+security-scan-output/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Local environment and signing credentials
+.env
+.env.*
+!.env.example
+*.p8
+*.p12
+*.pem
+*.key
+*.cer
+*.der
+*.mobileprovision
+*.provisionprofile

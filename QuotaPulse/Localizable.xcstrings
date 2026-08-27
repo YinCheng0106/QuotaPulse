@@ -1,0 +1,1050 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "1-hour reminder" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 1 小時提醒"
+          }
+        }
+      }
+    },
+    "5-hour window" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 小時配額週期"
+          }
+        }
+      }
+    },
+    "6-hour reminder" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 6 小時提醒"
+          }
+        }
+      }
+    },
+    "7-day window" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 天配額週期"
+          }
+        }
+      }
+    },
+    "24-hour reminder" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 24 小時提醒"
+          }
+        }
+      }
+    },
+    "30-minute reminder" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提前 30 分鐘提醒"
+          }
+        }
+      }
+    },
+    "Approval is required in System Settings > General > Login Items." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要前往「系統設定」›「一般」›「登入項目」核准。"
+          }
+        }
+      }
+    },
+    "Available" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可用"
+          }
+        }
+      }
+    },
+    "Background refresh" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景更新"
+          }
+        }
+      }
+    },
+    "Claude Code (Experimental, Unverified)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code（實驗性功能，尚未驗證）"
+          }
+        }
+      }
+    },
+    "Claude Code is not configured" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code 尚未設定"
+          }
+        }
+      }
+    },
+    "Codex" : {
+      "shouldTranslate" : false
+    },
+    "Codex runtime not detected" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未偵測到 Codex 執行環境"
+          }
+        }
+      }
+    },
+    "Development" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開發"
+          }
+        }
+      }
+    },
+    "Disabled" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已停用"
+          }
+        }
+      }
+    },
+    "duration.1-hour" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 hour"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 小時"
+          }
+        }
+      }
+    },
+    "duration.6-hours" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 hours"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "6 小時"
+          }
+        }
+      }
+    },
+    "duration.24-hours" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 hours"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "24 小時"
+          }
+        }
+      }
+    },
+    "duration.30-minutes" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 minutes"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 分鐘"
+          }
+        }
+      }
+    },
+    "duration.unavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "unavailable"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法取得"
+          }
+        }
+      }
+    },
+    "Enable reset notifications" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "啟用重置提醒"
+          }
+        }
+      }
+    },
+    "Enable this provider in Settings to resume updates." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在「設定」中啟用此提供者，以繼續更新。"
+          }
+        }
+      }
+    },
+    "Error" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "錯誤"
+          }
+        }
+      }
+    },
+    "Every 15 minutes" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每 15 分鐘"
+          }
+        }
+      }
+    },
+    "Experimental" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "實驗性功能"
+          }
+        }
+      }
+    },
+    "General" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一般"
+          }
+        }
+      }
+    },
+    "Integration not configured" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整合尚未設定"
+          }
+        }
+      }
+    },
+    "Last updated %@" : {
+      "comment" : "Provider card timestamp. The placeholder is a localized relative date.",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最後更新：%@"
+          }
+        }
+      }
+    },
+    "Launch at Login" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入時啟動"
+          }
+        }
+      }
+    },
+    "Launch at Login could not be changed." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法變更「登入時啟動」設定。"
+          }
+        }
+      }
+    },
+    "Launch at Login is not registered with macOS yet." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 尚未登錄「登入時啟動」。"
+          }
+        }
+      }
+    },
+    "Loading" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "載入中"
+          }
+        }
+      }
+    },
+    "Loading usage…" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入使用量…"
+          }
+        }
+      }
+    },
+    "Local notifications are ready." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本機通知已準備完成。"
+          }
+        }
+      }
+    },
+    "Log runtime snapshot" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記錄執行階段快照"
+          }
+        }
+      }
+    },
+    "Long windows" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "長期配額週期"
+          }
+        }
+      }
+    },
+    "macOS will ask for permission when the first reminder is ready." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第一則提醒準備好時，macOS 會要求通知權限。"
+          }
+        }
+      }
+    },
+    "No previously fetched quota information is available." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有先前取得的配額資訊可供顯示。"
+          }
+        }
+      }
+    },
+    "No quota windows are currently available." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前沒有可用的配額週期。"
+          }
+        }
+      }
+    },
+    "Not configured" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未設定"
+          }
+        }
+      }
+    },
+    "Not detected" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未偵測到"
+          }
+        }
+      }
+    },
+    "Not updated yet" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未更新"
+          }
+        }
+      }
+    },
+    "Notification permission was not granted." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未授予通知權限。"
+          }
+        }
+      }
+    },
+    "notification.reset.remaining %@" : {
+      "comment" : "Reset reminder body. The placeholder is a locale-formatted percentage remaining.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "You still have %@ of your quota remaining."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你還有 %@ 的配額尚未使用。"
+          }
+        }
+      }
+    },
+    "notification.reset.title %@ %@" : {
+      "comment" : "Reset reminder title. The first placeholder is the provider product name; the second is a localized duration.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ resets in %2$@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ 將在 %2$@後重置"
+          }
+        }
+      }
+    },
+    "Notifications" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知"
+          }
+        }
+      }
+    },
+    "Notifications are disabled in System Settings." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在「系統設定」中關閉通知。"
+          }
+        }
+      }
+    },
+    "Notifications are unavailable." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前無法使用通知。"
+          }
+        }
+      }
+    },
+    "Open or install ChatGPT or Codex, then refresh." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請開啟或安裝 ChatGPT 或 Codex，然後重新整理。"
+          }
+        }
+      }
+    },
+    "Out of date" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "資料已過期"
+          }
+        }
+      }
+    },
+    "Previously fetched usage is not available." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有先前取得的使用量可供顯示。"
+          }
+        }
+      }
+    },
+    "Primary window" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主要配額週期"
+          }
+        }
+      }
+    },
+    "Provider disabled" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供者已停用"
+          }
+        }
+      }
+    },
+    "Provider not detected" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未偵測到提供者"
+          }
+        }
+      }
+    },
+    "Provider usage unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法取得提供者使用量"
+          }
+        }
+      }
+    },
+    "Providers" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "服務提供者"
+          }
+        }
+      }
+    },
+    "Quit QuotaPulse" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出 QuotaPulse"
+          }
+        }
+      }
+    },
+    "Quota snapshot setup is required." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要先設定配額快照。"
+          }
+        }
+      }
+    },
+    "QuotaPulse" : {
+      "shouldTranslate" : false
+    },
+    "Refresh needed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要重新整理"
+          }
+        }
+      }
+    },
+    "Refresh usage" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新整理使用量"
+          }
+        }
+      }
+    },
+    "Refresh usage (⌘R)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新整理使用量（⌘R）"
+          }
+        }
+      }
+    },
+    "Refreshes provider usage" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新整理提供者使用量"
+          }
+        }
+      }
+    },
+    "Refreshing" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新中"
+          }
+        }
+      }
+    },
+    "Refreshing…" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在更新…"
+          }
+        }
+      }
+    },
+    "Requesting current quota information." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在取得目前的配額資訊。"
+          }
+        }
+      }
+    },
+    "Requests notification permission if needed, then schedules a local notification for about five seconds from now." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如有需要會要求通知權限，接著排定約五秒後傳送本機通知。"
+          }
+        }
+      }
+    },
+    "Reset time unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法取得重置時間"
+          }
+        }
+      }
+    },
+    "reset.countdown %@" : {
+      "comment" : "Reset countdown. The placeholder is a localized duration.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset in %@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "距離重置還有 %@"
+          }
+        }
+      }
+    },
+    "Resets %@" : {
+      "comment" : "Tooltip for an exact reset date and time.",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重置時間：%@"
+          }
+        }
+      }
+    },
+    "Runtime snapshot written to Console." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "執行階段快照已寫入「主控台」。"
+          }
+        }
+      }
+    },
+    "Secondary window" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "次要配額週期"
+          }
+        }
+      }
+    },
+    "Send test notification" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "傳送測試通知"
+          }
+        }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定"
+          }
+        }
+      }
+    },
+    "Short windows (up to 6 hours)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短期配額週期（最長 6 小時）"
+          }
+        }
+      }
+    },
+    "Showing previously fetched usage" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示先前取得的使用量"
+          }
+        }
+      }
+    },
+    "Showing previously fetched usage." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在顯示先前取得的使用量。"
+          }
+        }
+      }
+    },
+    "Stale" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "舊資料"
+          }
+        }
+      }
+    },
+    "Test notification scheduled for about 5 seconds from now." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "測試通知已排定於約 5 秒後傳送。"
+          }
+        }
+      }
+    },
+    "The current sign-in method does not provide quota information." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前的登入方式不提供配額資訊。"
+          }
+        }
+      }
+    },
+    "The local provider could not be found." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到本機提供者。"
+          }
+        }
+      }
+    },
+    "The provider did not return quota information." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "提供者未回傳配額資訊。"
+          }
+        }
+      }
+    },
+    "Unable to refresh usage" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法更新使用量"
+          }
+        }
+      }
+    },
+    "Unable to start Codex runtime" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法啟動 Codex 執行環境"
+          }
+        }
+      }
+    },
+    "Unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法使用"
+          }
+        }
+      }
+    },
+    "Unsupported" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不支援"
+          }
+        }
+      }
+    },
+    "Updated %@" : {
+      "comment" : "Dashboard or tooltip timestamp. The placeholder is a localized date or time.",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更新於 %@"
+          }
+        }
+      }
+    },
+    "Updating provider usage…" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在更新提供者使用量…"
+          }
+        }
+      }
+    },
+    "Usage available" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可取得使用量"
+          }
+        }
+      }
+    },
+    "Usage data unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法取得使用量資料"
+          }
+        }
+      }
+    },
+    "Usage may be out of date" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用量資料可能已過期"
+          }
+        }
+      }
+    },
+    "Usage may be out of date." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用量資料可能已過期。"
+          }
+        }
+      }
+    },
+    "Usage unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法取得使用量"
+          }
+        }
+      }
+    },
+    "usage.percentage.remaining %@" : {
+      "comment" : "Quota remaining label. The placeholder is a locale-formatted percentage.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ remaining"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剩餘 %@"
+          }
+        }
+      }
+    },
+    "usage.percentage.used %@" : {
+      "comment" : "Quota usage label and accessibility value. The placeholder is a locale-formatted percentage.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ used"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已使用 %@"
+          }
+        }
+      }
+    },
+    "Weekly window" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "每週配額週期"
+          }
+        }
+      }
+    },
+    "Writes a privacy-safe runtime diagnostics snapshot to Console." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將不含私密資訊的執行階段診斷快照寫入「主控台」。"
+          }
+        }
+      }
+    },
+    "Your quota window is approaching its scheduled reset." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的配額週期即將重置。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.2"
+}
