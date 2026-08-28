@@ -1,5 +1,3 @@
-# QuotaPulse v0.1.0
-
 QuotaPulse is a lightweight native macOS menu bar utility for monitoring AI coding-agent quota usage and reset times.
 
 ## Highlights
@@ -30,3 +28,39 @@ Developer ID signing, Hardened Runtime validation, notarization, and binary-dist
 - No usage history, cloud sync, iPhone app, or Reset Intelligence
 
 See the [README](../README.md) for build-from-source instructions and the complete privacy and compatibility notes.
+
+<details>
+<summary>繁體中文（台灣）</summary>
+
+QuotaPulse 是一款輕量的原生 macOS 選單列工具程式，用於監控 AI 程式設計代理工具的用量額度與重設時間。
+
+## 重點功能
+
+- 原生 Swift 與 SwiftUI 選單列操作體驗
+- 顯示 Codex 用量與剩餘百分比、重設時間及倒數計時
+- 本機重設提醒通知
+- 可設定登入時啟動、供應商與提醒門檻
+- 支援英文與繁體中文在地化
+- 以隱私優先為原則的本機處理，不需 QuotaPulse 帳號或雲端服務
+
+## 供應商支援
+
+Codex 已支援，並已使用 ChatGPT.app 內附的執行環境完成驗證。相容的舊版 Codex.app 與獨立 CLI 位置仍保留為探索用的備援路徑。ChatGPT.app 執行環境路徑屬於未公開的封裝細節；ChatGPT 更新後可能需要進行相容性調整。
+
+Claude Code 為 **實驗性／尚未驗證**。本機快照讀取器已完成實作，但需使用者明確啟用的狀態列橋接程式，以及使用真實且符合資格的訂閱帳號進行驗證，均尚未完成。
+
+## 僅提供原始碼的版本
+
+首個 v0.1.0 GitHub Release 僅提供原始碼。不會附上任何已核准的 QuotaPulse app bundle、DMG 或安裝程式。請依 README 中的說明，從原始碼建置應用程式。
+
+Developer ID 簽署、Hardened Runtime 驗證、公證（notarization）及二進位發行檢查均延後處理。
+
+## 已知限制
+
+- 需 macOS 14 或以上版本；已驗證 Apple silicon，尚未驗證 Intel Mac
+- 正式版 App Icon 尚在製作中
+- 尚未提供用量歷史紀錄、雲端同步、iPhone App 或 Reset Intelligence
+
+請參閱 [README](../README.md)，以取得從原始碼建置的說明，以及完整的隱私與相容性注意事項。
+
+</details>
