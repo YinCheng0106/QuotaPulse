@@ -1,6 +1,6 @@
 # QuotaPulse
 
-[English](README.md) | [繁體中文](README.zh-TW.md)
+**English** | [繁體中文](README.zh-TW.md)
 
 QuotaPulse is a lightweight native macOS menu bar utility for monitoring AI coding-agent quota usage and reset times.
 

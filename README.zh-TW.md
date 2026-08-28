@@ -1,6 +1,6 @@
 # QuotaPulse
 
-[English](README.md) | [繁體中文](README.zh-TW.md)
+[English](README.md) | **繁體中文**
 
 QuotaPulse 是一款輕量、原生的 macOS 選單列工具，用來監看 AI 程式開發代理工具的額度用量與重設時間。
 
