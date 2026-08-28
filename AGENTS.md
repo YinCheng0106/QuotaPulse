@@ -6,7 +6,7 @@ These instructions apply to the entire QuotaPulse repository.
 
 QuotaPulse is a native macOS menu bar app for monitoring AI coding-agent quota windows. Read `README.md`, `README.zh-TW.md`, `ARCHITECTURE.md`, and `ROADMAP.md` before making architectural or provider-integration changes.
 
-Roadmap Milestone 1 is implemented as a mock-only vertical slice. Codex usage discovery and its app-server-backed provider core are implemented. Claude Code usage discovery and its QuotaPulse-owned snapshot reader/provider core are also implemented, but the opt-in status-line bridge, settings setup, and UI wiring are not. The UI still uses mock providers. Do not jump directly to UI wiring, bridge installation, Reset Intelligence, cloud services, or release automation unless the user explicitly changes scope.
+QuotaPulse v0.1 functionality is complete. Production assembly uses the Codex app-server-backed provider and the Claude Code QuotaPulse-owned snapshot reader through normalized provider state; SwiftUI previews remain mock-only. The Claude opt-in status-line bridge and live subscribed-account validation are not implemented, so Claude Code remains Experimental / Unverified. Do not jump directly to bridge installation, Reset Intelligence, cloud services, or release automation unless the user explicitly changes scope.
 
 ## Language and naming
 

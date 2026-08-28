@@ -2,119 +2,122 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-QuotaPulse is an open-source, native macOS menu bar app for monitoring AI coding-agent usage limits and reset times.
+QuotaPulse is a lightweight native macOS menu bar utility for monitoring AI coding-agent quota usage and reset times.
 
-> Project status: QuotaPulse is a v0.1.0 release candidate. The native menu bar UI, ChatGPT-integrated Codex runtime, provider architecture, refresh lifecycle, notifications, settings, localization, and release performance audits are complete. Public distribution is still blocked on the production app icon, Developer ID signing, hardened runtime validation, and notarization. Claude Code remains Experimental and Unverified because its opt-in status-line bridge and subscribed-account validation are not complete.
+## Screenshots
 
-The first release focuses on OpenAI Codex and Claude Code. The longer-term goal is **Reset Intelligence**: trustworthy, source-linked warnings about temporary or global quota resets, including reminders when meaningful quota remains unused.
+Real application screenshots are intentionally deferred and will be added later. The current README does not link to placeholder images.
 
-## Milestone 1
+## Why QuotaPulse
 
-The current app provides:
+Coding-agent limits often reset on different schedules. QuotaPulse keeps the current percentage, reset time, and countdown one click away without requiring a QuotaPulse account or cloud service.
 
-- a menu-bar-only SwiftUI app using `MenuBarExtra(.window)`
-- provider-independent cards for Codex and Claude Code
-- used and remaining percentages, reset times, and minute-level countdowns
-- per-provider relative last-updated times and distinct loading, stale, unavailable, not-detected, not-configured, and safe error states
-- last-known in-memory usage remains visible when a later refresh fails
-- manual refresh with Command-R plus a single conservative 15-minute background schedule
-- non-blocking refresh on menu open when cached provider data is older than about 3 minutes
-- bounded 1/2/5/15/30-minute retry backoff for transient provider failures
-- a provider-independent `UsageProvider` boundary
-- a coalescing refresh coordinator that prevents overlapping refresh work
-- duration-aware, refresh-driven local reset notifications: 1 hour and 30 minutes for windows up to 6 hours; 24, 6, and 1 hours for long windows when those thresholds fit within the window duration
-- an independently testable notification policy and native UserNotifications boundary
-- a compact native Settings scene for Launch at Login, provider enablement, and reset reminders
-- XCTest coverage for domain formatting, multiple providers, isolated failures, refresh behavior, and service boundaries
+## Features
 
-The app still uses no accounts, backend, cloud storage, or third-party dependencies. Preferences and bounded notification-deduplication metadata use UserDefaults. Production assembly uses the local Codex and Claude Code adapters; SwiftUI previews remain self-contained with deterministic mock providers.
+- Native Swift and SwiftUI macOS menu bar app
+- Codex usage and remaining percentages
+- Reset times and minute-level countdowns
+- Local reset reminders through macOS notifications
+- Compact Settings for Launch at Login, provider enablement, and reminder thresholds
+- English and Traditional Chinese localization
+- Conservative refresh scheduling designed for lightweight long-running use
+- Local, privacy-first processing with no third-party runtime dependencies
 
-Provider research and adapter behavior are documented in [docs/providers/codex.md](docs/providers/codex.md) and [docs/providers/claude-code.md](docs/providers/claude-code.md).
+## Supported providers
 
-Long-running process, refresh, reconnect, UI lifecycle, and notification validation procedures are documented in [docs/RUNTIME_TESTING.md](docs/RUNTIME_TESTING.md); measurable acceptance budgets remain in [docs/PERFORMANCE.md](docs/PERFORMANCE.md).
+| Provider | Status | Integration |
+| --- | --- | --- |
+| Codex | **Supported** | Validated with the Codex runtime bundled in ChatGPT.app. Legacy Codex.app and compatible standalone CLI locations are retained as discovery fallbacks. |
+| Claude Code | **Experimental / Unverified** | The bounded local snapshot reader is implemented, but the opt-in status-line bridge and validation with a real eligible subscribed account are not complete. |
 
-## Requirements and build
+ChatGPT.app support relies on an undocumented packaging detail: the bundled Codex runtime path is not a stable public contract. ChatGPT updates may therefore require QuotaPulse compatibility updates.
+
+## Installation
+
+### Downloaded builds
+
+The initial v0.1.0 GitHub release is source-only. No downloadable QuotaPulse app, DMG, or package is approved for that release.
+
+Developer ID signing, Hardened Runtime validation, notarization, and binary-distribution checks are intentionally deferred. A custom Homebrew Tap is also only a possible future installation method; no official Homebrew Cask is available today.
+
+### Build from source
+
+Requirements:
 
 - macOS 14 or later
-- Xcode with the macOS 14 SDK or later
+- Xcode with a Swift 6 toolchain and the macOS 14 SDK or later; v0.1.0 was verified with Xcode 26.6
+- ChatGPT.app for the currently validated live Codex integration; it is not required to compile or launch the app
 
-Open `QuotaPulse.xcodeproj` in Xcode, or run:
+Clone and open the project:
+
+```sh
+git clone https://github.com/YinCheng0106/QuotaPulse.git
+cd QuotaPulse
+open QuotaPulse.xcodeproj
+```
+
+In Xcode, select the `QuotaPulse` scheme and **My Mac**, then choose **Product → Run**. If Xcode requests a development team for a local build, select your own team in Signing & Capabilities; this does not constitute Developer ID signing for distribution.
+
+The equivalent command-line build is:
 
 ```sh
 xcodebuild \
   -project QuotaPulse.xcodeproj \
   -scheme QuotaPulse \
   -destination 'platform=macOS,arch=arm64' \
+  -configuration Debug \
   build
 ```
 
-Run the unit tests with:
+## How Codex integration works
 
-```sh
-xcodebuild \
-  -project QuotaPulse.xcodeproj \
-  -scheme QuotaPulse \
-  -destination 'platform=macOS,arch=arm64' \
-  test
-```
+QuotaPulse locates a compatible Codex executable, preferring the runtime bundled in ChatGPT.app and falling back to supported legacy or standalone locations. It launches `codex app-server` directly and requests `account/rateLimits/read` over the documented stdio protocol.
 
-Local builds currently use automatic Apple Development signing. The checked Release configuration is not a distributable artifact: Developer ID signing, hardened runtime, removal of development-only signing entitlements, and notarization still require manual release configuration and validation.
+Codex remains responsible for authentication. QuotaPulse does not read or copy `~/.codex/auth.json`, scrape the interactive `/status` screen, or scan Codex session history. Provider data is normalized before it reaches SwiftUI.
 
-## v0.1 MVP
+## Notifications
 
-QuotaPulse v0.1 is intentionally small:
+Reset reminders are scheduled locally through macOS `UserNotifications` after a fresh provider refresh when at least 20% of the quota remains. Short quota windows can notify at 1 hour and 30 minutes; long windows can notify at 24 hours, 6 hours, and 1 hour when the threshold fits the window. Notifications can be disabled globally or by threshold in Settings.
 
-- a native Swift and SwiftUI macOS menu bar app
-- provider cards for Codex and Claude Code
-- used percentage, remaining percentage, reset time, and countdown per quota window
-- provider adapters behind a shared protocol
-- local notification architecture
-- local settings only
+## Privacy
 
-The MVP does not include accounts, cloud sync, an iPhone app, a web view, a remote Reset Intelligence backend, or Gemini CLI and OpenCode support.
+QuotaPulse processes usage data locally and does not require a QuotaPulse account, backend, analytics service, or cloud sync. It is designed not to intentionally upload:
 
-## Engineering principles
+- prompts or conversation contents
+- source code or coding history
+- authentication credentials
+- provider session contents
 
-- Keep idle CPU near 0% and treat 50 MB idle memory as an optimization target, not an unmeasured claim.
-- Prefer event-driven updates, manual refresh, a conservative 15-minute cadence, and staleness checks over frequent polling.
-- Allow only one refresh operation at a time.
-- Never scan complete coding-history directories or load large transcript files into memory.
-- Never read or copy provider credentials when an official local integration surface is available.
-- Never upload prompts, source code, coding history, or local usage records.
-- Keep future remote reset-announcement data separate from local usage collection.
+For Codex, QuotaPulse sends only the app-server protocol requests needed to obtain rate-limit data to the locally installed runtime; that runtime performs its normal provider communication and authentication. For Claude Code, the implemented reader accepts only a small, versioned QuotaPulse-owned snapshot and does not scan transcripts, history, credentials, or internal usage caches.
 
-## Stack
+These statements describe QuotaPulse's implementation boundary. They do not override the privacy or network behavior of ChatGPT, Codex, Claude Code, macOS, or other software running on the Mac.
 
-- Swift 6
-- SwiftUI and `MenuBarExtra`
-- Observation with `@Observable`
-- `UserNotifications`
-- Foundation
-- XCTest
-- no third-party runtime dependencies
+## Performance philosophy
 
-## Provider sources
+QuotaPulse favors event-driven updates, a conservative refresh cadence, bounded process output, and one coalesced refresh at a time. Countdown presentation does not trigger provider requests.
 
-The Codex and Claude Code sources are connected through `UsageProvider` and `UsageService`. Claude Code still requires a separately reviewed, explicit opt-in status-line bridge before it can produce a local snapshot.
+In approximately one hour of development-machine testing, QuotaPulse idle memory remained around 48 MB. Opening the menu or Settings temporarily reached about 70 MB, and refreshes temporarily added roughly 10–20 MB before returning toward baseline. Idle CPU was observed near zero. These are observations from one development environment, not universal guarantees. See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for conditions and limitations.
 
-| Provider | Preferred v0.1 source | Status | Important limitation |
-| --- | --- | --- | --- |
-| Codex | Official `codex app-server` stdio protocol and `account/rateLimits/read` | Integrated through the shared provider architecture | Prefers the Codex runtime integrated into ChatGPT.app, with legacy Codex.app and standalone CLI compatibility fallbacks |
-| Claude Code | Official status-line `rate_limits` JSON copied into a QuotaPulse-owned local snapshot by an opt-in bridge | Experimental snapshot reader integrated; bridge setup and subscribed-account validation pending | Available only for eligible Claude.ai subscribers after an API response; setup must preserve any existing status-line command |
+## Known limitations
 
-Codex session JSONL is an undocumented, stale-prone fallback and is not the primary contract. Claude transcript JSONL and `stats-cache.json` are not reliable subscription-quota sources and will not be scanned.
+- Requires macOS 14 or later
+- Validated on Apple silicon; Intel Macs are not yet validated
+- ChatGPT.app Codex runtime discovery depends on an undocumented bundle path
+- Claude Code support is Experimental / Unverified
+- The initial v0.1.0 release is source-only; downloadable binary distribution is not yet validated
+- Production App Icon is still a release follow-up
+- No usage history or cloud sync
+- No iPhone app
+- Reset Intelligence is not implemented
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for architecture, privacy boundaries, source assessment, and open decisions. See [ROADMAP.md](ROADMAP.md) for milestone scope.
+## Roadmap
 
-## Source references
+v0.1 focuses on reliable local quota monitoring. Future work may include a reviewed Claude Code opt-in bridge, broader provider and hardware validation, signed/notarized distribution, a production App Icon, and source-linked Reset Intelligence. None of these are implemented claims. See [ROADMAP.md](ROADMAP.md).
 
-- [Codex App Server](https://developers.openai.com/codex/app-server)
-- [Codex developer commands and status-line limits](https://developers.openai.com/codex/cli/slash-commands)
-- [Claude Code status-line data](https://code.claude.com/docs/en/statusline)
-- [Claude Code usage-limit guidance](https://code.claude.com/docs/en/errors#usage-limits)
-- [Apple `MenuBarExtra`](https://developer.apple.com/documentation/swiftui/menubarextra)
-- [Apple UserNotifications](https://developer.apple.com/documentation/usernotifications)
+## Contributing
 
-## Contributing and license
+Focused contributions are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), and [ARCHITECTURE.md](ARCHITECTURE.md) before opening a pull request.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [CHANGELOG.md](CHANGELOG.md), and [AGENTS.md](AGENTS.md). QuotaPulse is licensed under the [MIT License](LICENSE).
+## License
+
+QuotaPulse is licensed under the [MIT License](LICENSE).

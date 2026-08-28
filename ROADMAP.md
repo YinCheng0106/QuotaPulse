@@ -46,7 +46,7 @@
 - 以 VoiceOver 與純鍵盤手動檢查完整選單流程
 - 驗證亮色、暗色與窄版選單配置
 - 用 Activity Monitor 或 Instruments 進行可重複的 Release build 長時間閒置量測
-- 真實系統通知送達、Developer ID signing 與 notarization 驗證
+- 真實系統通知送達與散布驗證；Developer ID signing 與 notarization 後續依 Milestone 5 決策延後
 
 ## Milestone 2 — 即時 Codex adapter
 
@@ -122,23 +122,25 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 
 ## Milestone 5 — v0.1 發行準備
 
-狀態：release-readiness audit 已完成，MIT License 與初始 Git baseline 已完成；公開發行仍受 App Icon、正式簽章與 notarization 阻擋
+狀態：release-readiness audit、MIT License 與初始 Git baseline 已完成；目前準備公開 GitHub v0.1.0。Developer ID、notarization 與 Production App Icon 依本次發行決策刻意延後，必須持續清楚標示為限制，不得宣稱已完成。
 
 - 已選擇並加入 MIT License
-- 補齊貢獻、安全性、隱私、建置與發行文件
-- 加入 App icon 與 signed/notarized Release 設定
-- 在乾淨機器測試工具缺少、工具支援、登出、離線與升級情境
-- 用 Instruments 分析反覆開關選單與 30 分鐘閒置 session
-- 檢查 retained objects、timers、child processes、file handles 與 async tasks
-- 驗證閒置記憶體理想上低於 50 MB、閒置 CPU 接近 0%；如有差距就誠實記錄
-- 產生最小 release artifact 與 checksum
+- 已補齊貢獻、安全性、隱私、建置、發行與 draft release notes 文件
+- 已完成自動化 release audit、runtime lifecycle 稽核與約一小時開發環境效能觀察
+- 已確認公開文件把 Claude Code 維持為 Experimental／Unverified
+- 已啟用 GitHub Private Vulnerability Reporting
+- 最初的 v0.1.0 採 source-only GitHub Release，不附可下載 App、DMG 或安裝套件
+- README 的實際畫面截圖刻意延後，且目前不連結可能損壞的 placeholder 圖片
+- Production App Icon 保留為後續 release task
+- Developer ID signing、Hardened Runtime、notarization 與正式散布驗證延後處理
 
 完成條件：
 
-- 所有自動與手動 acceptance checks 都有紀錄
+- 公開發行範圍內的自動與必要人工 checks 都有紀錄
 - 沒有已知的 prompt、原始碼、transcript、repository 或 credential 蒐集
 - 即時 provider 驗證與 fixture tests 清楚分開
-- distribution、notarization 與 notification delivery 都有實際測試
+- source-only 狀態在 README 與 release notes 中一致揭露；未來附加 binary 前再完成對應 artifact 驗證
+- Developer ID、notarization 與 Production App Icon 仍清楚列為 deferred，不被誤寫成完成
 
 ## v0.1 之後
 

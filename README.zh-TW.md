@@ -2,119 +2,122 @@
 
 [English](README.md) | [繁體中文](README.zh-TW.md)
 
-QuotaPulse 是一款採用 MIT License 的開放原始碼原生 macOS 選單列 App，用來監看 AI 程式開發代理工具的使用額度與重設時間。
+QuotaPulse 是一款輕量、原生的 macOS 選單列工具，用來監看 AI 程式開發代理工具的額度用量與重設時間。
 
-> 專案狀態：QuotaPulse 現為 v0.1.0 release candidate。原生選單列 UI、ChatGPT 整合的 Codex runtime、provider 架構、刷新生命週期、通知、設定、本地化與最終效能稽核都已完成。公開散布仍受正式 App Icon、Developer ID 簽章、hardened runtime 驗證與 notarization 阻擋。Claude Code 因 opt-in status-line bridge 與真實訂閱帳號驗證尚未完成，維持標示為 Experimental／Unverified。
+## 畫面預覽
 
-第一個版本聚焦 OpenAI Codex 與 Claude Code。長期目標是 **Reset Intelligence**：針對暫時性或全域額度重設，提供可信且保留原始來源連結的提醒；當重設將近且仍有大量未使用額度時，也能通知使用者。
+實際 App 畫面截圖刻意延後，之後再加入。目前 README 不會連結到暫代圖片。
 
-## Milestone 1
+## 為什麼需要 QuotaPulse
 
-目前 App 提供：
+不同程式開發代理工具的額度可能在不同時間重設。QuotaPulse 讓目前用量百分比、重設時間與倒數只要點一下就能看到，不需要 QuotaPulse 帳號或雲端服務。
 
-- 使用 `MenuBarExtra(.window)` 的純選單列 SwiftUI App
-- 與 provider 無關的 Codex 與 Claude Code 卡片
-- 已使用百分比、剩餘百分比、重設時間與分鐘級倒數
-- 各 provider 的相對最後更新時間，以及明確的載入中、過期、無法偵測、尚未設定、無法取得與安全錯誤狀態
-- 後續刷新失敗時，仍保留並顯示記憶體中的上一份有效用量
-- 支援 Command-R 手動刷新，以及由單一排程負責的保守 15 分鐘背景刷新
-- 選單開啟時先顯示 cached snapshot，資料超過約 3 分鐘才非阻塞地背景刷新
-- 暫時性 provider 失敗採有上限的 1／2／5／15／30 分鐘退避
-- 與 provider 無關的 `UsageProvider` 邊界
-- 可合併重複請求、防止刷新工作重疊的協調器
-- 依視窗長度、隨既有刷新評估的本機 reset notifications：6 小時以下視窗使用 1 小時／30 分鐘，長視窗在門檻不超過視窗長度時使用 24／6／1 小時，並維持有上限、跨重啟的去重
-- 可獨立測試的通知 policy 與原生 UserNotifications 邊界
-- 提供 Launch at Login、provider 啟用狀態與 reset reminders 的精簡原生 Settings scene
-- 涵蓋 domain 格式化、多 provider、錯誤隔離、刷新行為與 service 邊界的 XCTest
+## 功能
 
-App 仍沒有帳號、後端、雲端儲存或第三方相依套件；preferences 與筆數有上限的通知去重 metadata 都存於 UserDefaults。Production assembly 使用本機 Codex 與 Claude Code adapters；SwiftUI previews 則維持使用自足的固定 mock providers。
+- 使用 Swift 與 SwiftUI 開發的原生 macOS 選單列 App
+- Codex 已使用與剩餘額度百分比
+- 重設時間與分鐘級倒數
+- 透過 macOS 通知提供本機重設提醒
+- 精簡的「設定」，可控制登入時啟動、provider 啟用狀態與提醒門檻
+- 英文與臺灣繁體中文本地化
+- 為輕量長時間執行設計的保守刷新排程
+- 隱私優先的本機處理，且沒有第三方 runtime 相依套件
 
-Provider 資料來源研究與 adapter 行為記錄於 [docs/providers/codex.md](docs/providers/codex.md) 與 [docs/providers/claude-code.md](docs/providers/claude-code.md)。
+## 支援的 providers
 
-長時間 process、refresh、reconnect、UI lifecycle 與通知驗證步驟記錄於 [docs/RUNTIME_TESTING.md](docs/RUNTIME_TESTING.md)；可量測的驗收預算仍以 [docs/PERFORMANCE.md](docs/PERFORMANCE.md) 為準。
+| Provider | 狀態 | 整合方式 |
+| --- | --- | --- |
+| Codex | **Supported** | 已使用 ChatGPT.app 內附的 Codex runtime 驗證；探索時也保留舊 Codex.app 與相容獨立 CLI 位置作為 fallback。 |
+| Claude Code | **Experimental / Unverified** | 已實作有大小上限的本機 snapshot reader，但 opt-in status-line bridge 與符合資格之真實訂閱帳號驗證尚未完成。 |
 
-## 系統需求與建置
+ChatGPT.app 支援依賴未文件化的封裝細節：內附 Codex runtime 的路徑不是穩定的公開 contract。因此 ChatGPT 更新後，QuotaPulse 可能需要相容性調整。
+
+## 安裝
+
+### 下載建置版本
+
+最初的 v0.1.0 GitHub Release 為 source-only，不會附上已核准的 QuotaPulse App、DMG 或安裝套件。
+
+Developer ID 簽章、Hardened Runtime 驗證、notarization 與 binary distribution 檢查都刻意延後。自訂 Homebrew Tap 也只是可能的後續安裝方式，目前沒有官方 Homebrew Cask。
+
+### 從原始碼建置
+
+需求：
 
 - macOS 14 以上
-- 含 macOS 14 SDK 以上版本的 Xcode
+- 含 Swift 6 toolchain 與 macOS 14 SDK 以上版本的 Xcode；v0.1.0 已使用 Xcode 26.6 驗證
+- 若要使用目前已驗證的 Codex 即時整合，需要安裝 ChatGPT.app；單純編譯與啟動 App 不需要
 
-使用 Xcode 開啟 `QuotaPulse.xcodeproj`，或執行：
+Clone 並開啟專案：
+
+```sh
+git clone https://github.com/YinCheng0106/QuotaPulse.git
+cd QuotaPulse
+open QuotaPulse.xcodeproj
+```
+
+在 Xcode 選擇 `QuotaPulse` scheme 與 **My Mac**，再選擇 **Product → Run**。如果 Xcode 要求設定本機開發用 team，請在 Signing & Capabilities 選擇自己的 team；這不代表已完成散布用的 Developer ID 簽章。
+
+對應的命令列建置指令為：
 
 ```sh
 xcodebuild \
   -project QuotaPulse.xcodeproj \
   -scheme QuotaPulse \
   -destination 'platform=macOS,arch=arm64' \
+  -configuration Debug \
   build
 ```
 
-執行單元測試：
+## Codex 整合方式
 
-```sh
-xcodebuild \
-  -project QuotaPulse.xcodeproj \
-  -scheme QuotaPulse \
-  -destination 'platform=macOS,arch=arm64' \
-  test
-```
+QuotaPulse 會尋找相容的 Codex 執行檔，優先使用 ChatGPT.app 內附的 runtime，再 fallback 到支援的舊版或獨立安裝位置。它會直接啟動 `codex app-server`，並透過已有文件的 stdio protocol 呼叫 `account/rateLimits/read`。
 
-本機建置目前使用自動 Apple Development signing。儲存庫內的 Release 設定不是可散布成品；Developer ID 簽章、hardened runtime、移除開發用簽章 entitlement 與 notarization 仍須人工設定並驗證。
+驗證身分仍由 Codex 負責。QuotaPulse 不會讀取或複製 `~/.codex/auth.json`、擷取互動式 `/status` 畫面，也不會掃描 Codex session history。Provider 資料經過正規化後才會交給 SwiftUI。
 
-## v0.1 MVP
+## 通知
 
-QuotaPulse v0.1 刻意維持小範圍：
+取得新鮮的 provider 資料，且剩餘額度至少為 20% 時，QuotaPulse 會透過 macOS `UserNotifications` 在本機排定重設提醒。短額度視窗可在 1 小時與 30 分鐘前提醒；長視窗則可在門檻未超過視窗長度時，於 24 小時、6 小時與 1 小時前提醒。你可以在「設定」中關閉全部通知或個別門檻。
 
-- 原生 Swift 與 SwiftUI macOS 選單列 App
-- Codex 與 Claude Code provider 卡片
-- 每個額度視窗的已使用百分比、剩餘百分比、重設時間與倒數
-- 共用 protocol 後方的 provider adapters
-- 本機通知架構
-- 僅限本機設定
+## 隱私
 
-MVP 不包含帳號、雲端同步、iPhone App、web view、遠端 Reset Intelligence 後端，也不支援 Gemini CLI 與 OpenCode。
+QuotaPulse 在本機處理用量資料，不需要 QuotaPulse 帳號、後端、分析服務或雲端同步。它的設計不會刻意上傳：
 
-## 工程原則
+- prompt 或對話內容
+- 原始碼或程式開發歷史
+- 驗證憑證
+- provider session 內容
 
-- 讓閒置 CPU 接近 0%；50 MB 以下閒置記憶體是最佳化目標，不是未量測就宣稱達成的數字。
-- 優先採用事件驅動更新、手動刷新、保守的 15 分鐘週期與資料過期檢查，避免頻繁輪詢。
-- 同一時間只允許一個刷新作業。
-- 不掃描完整程式開發歷史目錄，也不把大型 transcript 檔案整份載入記憶體。
-- 有官方本機整合介面時，不讀取或複製 provider 憑證。
-- 不上傳 prompt、原始碼、程式開發歷史或本機用量紀錄。
-- 未來的遠端額度重設公告資料，必須與本機用量蒐集分離。
+使用 Codex 時，QuotaPulse 只會向本機安裝的 runtime 傳送取得 rate-limit 資料所需的 app-server protocol request；該 runtime 仍依原本設計處理 provider 通訊與驗證。使用 Claude Code 時，目前實作的 reader 只接受小型、有版本的 QuotaPulse 自有 snapshot，不會掃描 transcript、history、credential 或內部 usage cache。
 
-## 技術組合
+以上描述的是 QuotaPulse 的實作邊界，不會改變 ChatGPT、Codex、Claude Code、macOS 或 Mac 上其他軟體本身的隱私與網路行為。
 
-- Swift 6
-- SwiftUI 與 `MenuBarExtra`
-- 使用 `@Observable` 的 Observation
-- `UserNotifications`
-- Foundation
-- XCTest
-- 無第三方 runtime 相依套件
+## 效能理念
 
-## Provider 資料來源
+QuotaPulse 優先採用事件驅動更新、保守的刷新週期、有上限的 process output，以及同一時間只進行一個合併後的刷新。倒數畫面本身不會觸發 provider request。
 
-Codex 與 Claude Code 資料來源都已透過 `UsageProvider` 與 `UsageService` 接入。Claude Code 仍須經過另行審查、由使用者明確啟用的 status-line bridge，才能產生本機 snapshot。
+在開發機約一小時的測試中，QuotaPulse 閒置記憶體維持在約 48 MB；開啟選單或「設定」時曾短暫到約 70 MB，刷新時則短暫增加約 10–20 MB，之後都會往基準值回落。觀察到的閒置 CPU 接近 0%。這些是單一開發環境的觀察結果，不是所有環境的保證；量測條件與限制請參閱 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。
 
-| Provider | v0.1 優先資料來源 | 狀態 | 重要限制 |
-| --- | --- | --- | --- |
-| Codex | 官方 `codex app-server` stdio protocol 與 `account/rateLimits/read` | 已透過共用 provider 架構接入 | 優先使用 ChatGPT.app 整合的 Codex runtime，舊 Codex.app 與獨立 CLI 保留為相容性 fallback |
-| Claude Code | 由使用者明確同意的 bridge，把官方 status-line `rate_limits` JSON 寫入 QuotaPulse 自有本機 snapshot | Experimental snapshot reader 已接入；bridge setup 與訂閱帳號實測待完成 | 僅適用符合資格且已完成一次 API response 的 Claude.ai 訂閱者；設定流程必須保留既有 status-line command |
+## 已知限制
 
-Codex session JSONL 是未文件化且可能過期的備援，不是主要 contract。Claude transcript JSONL 與 `stats-cache.json` 不是可靠的訂閱額度來源，因此不會掃描。
+- 需要 macOS 14 以上
+- 已在 Apple silicon 驗證；Intel Mac 尚未驗證
+- ChatGPT.app Codex runtime 探索依賴未文件化的 bundle 路徑
+- Claude Code 支援為 Experimental / Unverified
+- 最初的 v0.1.0 為 source-only release；可下載 binary 的散布驗證尚未完成
+- Production App Icon 仍是發行後續待辦
+- 沒有用量歷史與雲端同步
+- 沒有 iPhone App
+- 尚未實作 Reset Intelligence
 
-架構、隱私邊界、資料來源評估與待決事項請參閱 [ARCHITECTURE.md](ARCHITECTURE.md)；里程碑範圍請參閱 [ROADMAP.md](ROADMAP.md)。
+## 路線圖
 
-## 參考來源
+v0.1 聚焦可靠的本機額度監看。未來可能進行經審查的 Claude Code opt-in bridge、更廣泛的 provider 與硬體驗證、簽章與 notarization、Production App Icon，以及保留來源連結的 Reset Intelligence；這些都不是目前已實作功能。詳情請參閱 [ROADMAP.md](ROADMAP.md)。
 
-- [Codex App Server](https://developers.openai.com/codex/app-server)
-- [Codex developer commands and status-line limits](https://developers.openai.com/codex/cli/slash-commands)
-- [Claude Code status-line data](https://code.claude.com/docs/en/statusline)
-- [Claude Code usage-limit guidance](https://code.claude.com/docs/en/errors#usage-limits)
-- [Apple `MenuBarExtra`](https://developer.apple.com/documentation/swiftui/menubarextra)
-- [Apple UserNotifications](https://developer.apple.com/documentation/usernotifications)
+## 參與貢獻
 
-## 貢獻與授權
+歡迎範圍明確的貢獻。送出 pull request 前，請先閱讀 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md) 與 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
-請參閱 [CONTRIBUTING.md](CONTRIBUTING.md)、[SECURITY.md](SECURITY.md)、[CHANGELOG.md](CHANGELOG.md) 與 [AGENTS.md](AGENTS.md)。QuotaPulse 採用 [MIT License](LICENSE) 授權。
+## 授權
+
+QuotaPulse 採用 [MIT License](LICENSE) 授權。

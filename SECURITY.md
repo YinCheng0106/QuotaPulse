@@ -6,7 +6,9 @@ Security updates are provided for the latest published QuotaPulse release. Pre-r
 
 ## Reporting a vulnerability
 
-Do not open a public issue for a suspected vulnerability. Use GitHub private vulnerability reporting if it is enabled for this repository. If it is unavailable, contact the maintainer privately through a contact method published on the repository owner's profile before sharing details.
+Do not open a public issue containing vulnerability details, credentials, or exploit code.
+
+GitHub Private Vulnerability Reporting is enabled for this repository. Use the repository's **Security → Report a vulnerability** flow to report suspected vulnerabilities privately.
 
 Include a concise impact description, affected version, reproduction steps, and any relevant sanitized logs. Do not include credentials, access tokens, prompts, transcripts, source code from unrelated projects, raw provider responses, or other users' data.
 

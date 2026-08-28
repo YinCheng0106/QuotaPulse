@@ -30,7 +30,7 @@ v0.1 不處理帳號、雲端同步、遠端公告擷取、歷史分析、token 
 
 Milestone 1 已確認 macOS 14 作為目前 deployment target。是否支援更舊版本仍是產品決策，不應在同一套程式碼維護平行的 Observation 實作。
 
-目前規劃以 Mac App Store 外的直接簽章與 notarization 方式散布。啟動已安裝 provider 執行檔及讀取 provider 自有檔案，與直接套用 App Sandbox 的設計存在衝突；若未來要求上架 Mac App Store，必須先重新設計 provider 整合與 security-scoped access。
+長期仍規劃採 Mac App Store 外的 Developer ID 簽章與 notarization 方式散布，但這些工作在公開 GitHub v0.1 刻意延後；最初的 v0.1.0 是 source-only release，不附可下載 App。啟動已安裝 provider 執行檔及讀取 provider 自有檔案，與直接套用 App Sandbox 的設計存在衝突；若未來要求上架 Mac App Store，必須先重新設計 provider 整合與 security-scoped access。
 
 ## 3. 系統形狀
 
@@ -372,14 +372,14 @@ Milestone 1 自動測試涵蓋：
 
 後續 provider 工作還需要測試 app-server request/response correlation、正式 Claude status-line fixtures、bridge atomic write 與 permissions、existing-command composition、settings migration，以及各支援版本與 authentication modes 的 live behavior。
 
-v0.1 發行前仍須手動驗證：Release build 啟動、選單開關、Settings 與 quit、VoiceOver 與鍵盤、亮暗模式、窄版配置、工具缺少/登出/斷線/過期狀態、console error、長時間記憶體與 CPU、retain cycle、timer、process、file handle 與 async task。
+公開 v0.1 的剩餘人工檢查以 `docs/RELEASE_CHECKLIST.md` 為準。Developer ID、Hardened Runtime、notarization 與 Production App Icon 已明確延後；未來聲稱完成正式散布前，仍須在最終 artifact 驗證簽章、Gatekeeper、通知、Launch at Login、child process 與長時間 runtime 行為。
 
 編譯與 fixture 測試不能證明即時 Codex/Claude 整合、系統通知實際送達、notarization、記憶體目標或外部散布。回報時必須分開列出各種驗證。
 
 ## 14. 待決事項與不確定性
 
 1. 確認是否長期維持 macOS 14 為最低支援版本。
-2. 確認直接 notarized distribution，以及是否有意不啟用 App Sandbox。
+2. 完成目前延後的 Developer ID／notarized distribution 驗證，以及確認是否有意不啟用 App Sandbox。
 3. 決定是否仍需要 GUI executable override；目前已支援 ChatGPT.app 整合 runtime、舊 Codex.app、常見 CLI locations 與 GUI process 繼承的 `PATH`，但不載入 interactive shell 設定。
 4. 實測支援的 Codex versions 與 authentication modes 對 app-server 的相容性。
 5. 決定 QuotaPulse 是否修改 Claude settings，或只產生 opt-in bridge 說明。

@@ -7,6 +7,7 @@ Status labels:
 - **AUTO** — completed by an automated or command-line check during the release-readiness audit
 - **MANUAL** — requires a person to verify the installed or distributed app
 - **BLOCKED** — must be resolved before a public v0.1.0 release
+- **DEFERRED** — intentionally postponed and must remain documented as a limitation
 - **OPTIONAL** — additional confidence work that does not block the current release candidate
 
 ## Build
@@ -27,7 +28,7 @@ Status labels:
 - [x] **AUTO** Release smoke launch selects the ChatGPT-integrated Codex runtime and keeps exactly one app-server child owned by the single QuotaPulse instance.
 - [x] **AUTO** Release binary does not contain the audited DEBUG diagnostics, development menu, or test-notification strings.
 - [x] **AUTO** Runtime source review confirms one refresh task, bounded backoff, sequential providers, cancellation propagation, observer cleanup, bounded process output, and explicit pipe/file-handle shutdown.
-- [ ] **OPTIONAL** Repeat an 8-hour and 24-hour Release soak on the final signed artifact; the recorded one-hour audit is the current evidence.
+- [ ] **OPTIONAL** Repeat an 8-hour and 24-hour Release soak on the exact downloadable artifact, if one is provided; the recorded one-hour audit is the current evidence.
 
 ## Privacy
 
@@ -41,7 +42,7 @@ Status labels:
 - [x] **AUTO** Authorization, denied permission, stale data, reset generation, threshold mapping, short/weekly windows, cancellation, persistence bounds, localization, and deduplication tests pass.
 - [x] **AUTO** A real local test notification was scheduled, delivered, verified, and removed through the opt-in system test.
 - [x] **AUTO** Development-only notification controls are excluded from Release.
-- [ ] **MANUAL** Confirm a production-signed app requests permission and presents a banner/sound on a clean macOS user profile.
+- [ ] **MANUAL** Confirm the exact downloadable app, if provided, requests permission and presents a banner/sound on a clean macOS user profile.
 
 ## Settings
 
@@ -64,44 +65,48 @@ Status labels:
 - [ ] **MANUAL** Verify full keyboard access and focus order.
 - [ ] **MANUAL** Verify light mode, dark mode, increased contrast, and the fixed narrow menu layout on the final build.
 
-## Signing
+## Signing and notarization
 
-- [ ] **BLOCKED** Configure and archive with an appropriate Developer ID Application identity; do not ship the current Apple Development-signed Release build.
-- [ ] **BLOCKED** Enable and validate Hardened Runtime on the distributable artifact, including live Codex child-process behavior.
-- [ ] **BLOCKED** Verify the distributable signature has no `com.apple.security.get-task-allow` entitlement.
-- [ ] **BLOCKED** Submit for notarization, staple the ticket, and verify with Gatekeeper on a clean Mac.
+- [ ] **DEFERRED** Configure and archive with an appropriate Developer ID Application identity.
+- [ ] **DEFERRED** Enable and validate Hardened Runtime on the signed artifact, including live Codex child-process behavior.
+- [ ] **DEFERRED** Verify the signed artifact has no `com.apple.security.get-task-allow` entitlement.
+- [ ] **DEFERRED** Submit for notarization, staple the ticket, and verify with Gatekeeper on a clean Mac.
 - [x] **AUTO** No App Sandbox entitlement is present; this matches the documented direct-distribution assumption and local provider access model.
+- [x] **AUTO** README and release notes identify the initial v0.1.0 release as source-only and do not offer an unverified binary download.
 
 ## Repository
 
 - [x] **AUTO** Added `.gitignore` rules for `.DS_Store`, DerivedData/build output, `.xcresult`, and Xcode per-user state.
-- [x] **AUTO** No accidental archives, packages, object files, libraries, logs, or temporary files were found in the project tree.
+- [x] **AUTO** No tracked archives, packages, object files, libraries, logs, diagnostics, security-scan output, or temporary files were found.
 - [x] **AUTO** Created the initial Git commit as the public repository baseline.
 - [x] **AUTO** Added the selected MIT License at the repository root.
-- [ ] **BLOCKED** Add and configure the production App Icon asset.
+- [ ] **MANUAL** Rename the mistakenly created public repository from `QuotePulse` to `QuotaPulse`, update `origin`, and verify the README clone URL before tagging.
+- [ ] **DEFERRED** Add and configure the production App Icon asset; it remains an explicit release follow-up.
 
 ## Documentation
 
-- [x] **AUTO** README status identifies v0.1.0 as a release candidate and keeps Claude Code explicitly Experimental/Unverified.
+- [x] **AUTO** README describes the current v0.1 scope, keeps Claude Code explicitly Experimental/Unverified, and documents deferred distribution work.
 - [x] **AUTO** Added minimal `CONTRIBUTING.md`, `SECURITY.md`, and `CHANGELOG.md`.
+- [x] **AUTO** Added concise draft GitHub release notes under `docs/RELEASE_NOTES_v0.1.0.md`.
 - [x] **AUTO** Known architecture and provider limitations remain documented without implying Claude subscribed-account validation.
-- [ ] **MANUAL** Add a concrete private security-reporting contact or enable GitHub private vulnerability reporting after the public remote is configured.
+- [x] **AUTO** GitHub Private Vulnerability Reporting is enabled and the public repository exposes **Report a vulnerability**.
+- [ ] **DEFERRED** Add real README screenshots later; the current README uses a textual placeholder and has no broken image links.
 
 ## Manual checks
 
-- [ ] **MANUAL** Test the final signed build on a clean macOS 14-or-later account with no prior QuotaPulse preferences.
+- [ ] **MANUAL** If a downloadable build is attached, test that exact build on a clean macOS 14-or-later account with no prior QuotaPulse preferences.
 - [ ] **MANUAL** Verify Codex states for supported, missing runtime, logged-out, offline, timeout, and recovery scenarios without exposing raw errors.
-- [ ] **MANUAL** Confirm Settings, notification permission, notification delivery, Launch at Login, relaunch, and Quit on the final signed build.
+- [ ] **MANUAL** Confirm Settings, notification permission, notification delivery, Launch at Login, relaunch, and Quit on the exact downloadable build, if provided.
 - [ ] **MANUAL** Confirm exactly one QuotaPulse-owned app-server exists when healthy and none remains after Quit.
-- [ ] **MANUAL** Confirm Gatekeeper first launch succeeds after download quarantine.
+- [ ] **DEFERRED** Before attaching a future build, document and verify its Gatekeeper approval flow after download quarantine.
 - [ ] **OPTIONAL** Validate additional ChatGPT/Codex runtime versions and both Apple silicon and Intel hardware where support is intended.
 - [ ] **OPTIONAL** Validate Claude Code with a real eligible subscribed account only after the opt-in bridge is separately reviewed; keep it Experimental/Unverified until then.
 
 ## Release
 
-- [ ] **BLOCKED** Resolve every blocked item above.
-- [ ] **MANUAL** Review the final diff and confirm no unrelated local files are included.
-- [ ] **MANUAL** Archive, sign, notarize, staple, and smoke-test the exact artifact to distribute.
-- [ ] **MANUAL** Produce and verify a checksum for the final artifact.
+- [ ] **MANUAL** Resolve the GitHub repository naming mismatch and re-check the public clone URL.
+- [x] **MANUAL** Reviewed the final diff; it contains only public release documentation and repository-guidance updates.
+- [x] **AUTO** The initial v0.1.0 release is source-only; no app bundle, DMG, package, or checksum is approved for attachment.
+- [ ] **DEFERRED** Before any future binary release, archive and smoke-test the exact artifact, validate signing/notarization and Gatekeeper behavior, and produce a checksum.
 - [ ] **MANUAL** Replace `Unreleased` in `CHANGELOG.md` with the release date.
 - [ ] **MANUAL** Create the `v0.1.0` tag and publish the release only after explicit maintainer approval.

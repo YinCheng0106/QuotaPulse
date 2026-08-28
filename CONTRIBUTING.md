@@ -1,15 +1,34 @@
 # Contributing to QuotaPulse
 
-Thanks for helping improve QuotaPulse.
+QuotaPulse targets macOS 14 or later and uses Swift 6. Build it with Xcode that includes a Swift 6 toolchain and the macOS 14 SDK or later; v0.1.0 was verified with Xcode 26.6. Apple silicon is the currently validated development platform; Intel Macs are not yet validated.
 
-Before opening a change:
+## Build and test
 
-1. Read [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md).
-2. Keep changes within the documented product and privacy boundaries.
-3. Do not include credentials, provider payloads, prompts, transcripts, coding history, or private filesystem paths in issues, fixtures, logs, or commits.
-4. Add or update tests for behavior changes.
-5. Run both builds and the complete test suite described in [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md).
+Open `QuotaPulse.xcodeproj` in Xcode, or run:
 
-Use focused pull requests and explain which checks were automated, manually verified, or not run. Commit messages should follow Conventional Commits in English.
+```sh
+xcodebuild \
+  -project QuotaPulse.xcodeproj \
+  -scheme QuotaPulse \
+  -destination 'platform=macOS,arch=arm64' \
+  build
 
-Security vulnerabilities should be reported according to [SECURITY.md](SECURITY.md), not through a public issue.
+xcodebuild \
+  -project QuotaPulse.xcodeproj \
+  -scheme QuotaPulse \
+  -destination 'platform=macOS,arch=arm64' \
+  test
+```
+
+## Expectations
+
+- Read [AGENTS.md](AGENTS.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md) before changing architecture or provider integrations.
+- Keep pull requests focused, add tests for behavior changes, and report automated, manual, and unverified checks separately.
+- Use Conventional Commits in English.
+- Do not add accounts, cloud sync, analytics, or third-party runtime dependencies without explicit project approval.
+
+## Provider privacy
+
+Never include credentials, tokens, prompts, conversations, provider payloads, transcripts, coding history, repository identities, or private filesystem paths in issues, fixtures, logs, or commits. Provider integrations must use bounded inputs, normalize data before it reaches the UI, and preserve the privacy rules in [AGENTS.md](AGENTS.md).
+
+Report vulnerabilities according to [SECURITY.md](SECURITY.md), not through a public issue.
