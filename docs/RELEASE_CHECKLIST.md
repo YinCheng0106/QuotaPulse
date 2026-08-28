@@ -80,7 +80,7 @@ Status labels:
 - [x] **AUTO** No tracked archives, packages, object files, libraries, logs, diagnostics, security-scan output, or temporary files were found.
 - [x] **AUTO** Created the initial Git commit as the public repository baseline.
 - [x] **AUTO** Added the selected MIT License at the repository root.
-- [ ] **MANUAL** Rename the mistakenly created public repository from `QuotePulse` to `QuotaPulse`, update `origin`, and verify the README clone URL before tagging.
+- [x] **MANUAL** Rename the mistakenly created public repository from `QuotePulse` to `QuotaPulse`, update `origin`, and verify the README clone URL before tagging.
 - [ ] **DEFERRED** Add and configure the production App Icon asset; it remains an explicit release follow-up.
 
 ## Documentation
