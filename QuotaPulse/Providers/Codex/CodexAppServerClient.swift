@@ -6,6 +6,10 @@ protocol CodexRateLimitsReading: Sendable {
     func readRateLimits() async throws -> CodexRateLimitsResult
 }
 
+protocol CodexRuntimeDiagnosticReading: Sendable {
+    func runtimeDiagnostic() async -> ProviderRuntimeDiagnostic
+}
+
 enum CodexAppServerError: Error, Equatable, Sendable {
     case executableNotFound
     case launchFailed
@@ -29,7 +33,7 @@ extension CodexAppServerError: ProviderStatusProvidingError {
     }
 }
 
-actor CodexAppServerClient: CodexRateLimitsReading {
+actor CodexAppServerClient: CodexRateLimitsReading, CodexRuntimeDiagnosticReading {
     private static let initializeRequestID = 1
     private static let firstRateLimitsRequestID = 2
 
@@ -48,6 +52,9 @@ actor CodexAppServerClient: CodexRateLimitsReading {
     private var nextRequestID = firstRateLimitsRequestID
     private var nextRequestGeneration: UInt64 = 1
     private var inFlightRequest: InFlightRequest?
+    private var hasStartedAppServerProcess = false
+    private var lastRequestSucceeded = false
+    private var lastFailureCategory: DiagnosticFailureCategory?
 
     init(
         executableURL: URL,
@@ -79,6 +86,72 @@ actor CodexAppServerClient: CodexRateLimitsReading {
     }
 
     func readRateLimits() async throws -> CodexRateLimitsResult {
+        do {
+            let result = try await readRateLimitsCoalesced()
+            lastRequestSucceeded = true
+            lastFailureCategory = nil
+            return result
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            lastRequestSucceeded = false
+            lastFailureCategory = Self.failureCategory(for: error)
+            throw error
+        }
+    }
+
+    func runtimeDiagnostic() async -> ProviderRuntimeDiagnostic {
+        let discovery: CodexRuntimeDiscovery
+        if let locator {
+            discovery = locator.diagnosticSnapshot()
+        } else {
+            let isDetected = executableURL.map {
+                FileManager.default.isExecutableFile(atPath: $0.path)
+            } ?? false
+            discovery = CodexRuntimeDiscovery(
+                chatGPTApplication: DiagnosticHostApplicationState(
+                    application: .chatGPT,
+                    isDetected: false,
+                    version: nil
+                ),
+                runtimeSource: isDetected ? .standaloneCodex : .notDetected,
+                runtimeDetected: isDetected,
+                failureCategory: isDetected ? nil : .runtimeNotDetected
+            )
+        }
+
+        let isConnected = lifecycle.connection?.isHealthy == true
+        let appServerState: DiagnosticAppServerState
+        if isConnected {
+            appServerState = .connected
+        } else if lastFailureCategory == .appServerLaunchFailed {
+            appServerState = .launchFailed
+        } else if hasStartedAppServerProcess {
+            appServerState = .disconnected
+        } else {
+            appServerState = .notStarted
+        }
+
+        let compatibilityStatus: DiagnosticCompatibilityStatus
+        if lastRequestSucceeded {
+            compatibilityStatus = .compatible
+        } else if discovery.runtimeDetected {
+            compatibilityStatus = .unverified
+        } else {
+            compatibilityStatus = .unavailable
+        }
+
+        return ProviderRuntimeDiagnostic(
+            hostApplication: discovery.chatGPTApplication,
+            runtimeSource: discovery.runtimeSource,
+            runtimeDetected: discovery.runtimeDetected,
+            compatibilityStatus: compatibilityStatus,
+            appServerState: appServerState,
+            lastFailureCategory: lastFailureCategory ?? discovery.failureCategory
+        )
+    }
+
+    private func readRateLimitsCoalesced() async throws -> CodexRateLimitsResult {
         if let inFlightRequest {
             return try await awaitRequest(inFlightRequest.task)
         }
@@ -174,6 +247,7 @@ actor CodexAppServerClient: CodexRateLimitsReading {
 
         do {
             try process.run()
+            hasStartedAppServerProcess = true
         } catch {
             try? standardInput.fileHandleForWriting.close()
             try? standardOutput.fileHandleForReading.close()
@@ -239,6 +313,20 @@ actor CodexAppServerClient: CodexRateLimitsReading {
     private func disconnect(_ connection: ManagedCodexConnection) async {
         lifecycle.remove(connection)
         await connection.stop()
+    }
+
+    private static func failureCategory(for error: Error) -> DiagnosticFailureCategory? {
+        guard let error = error as? CodexAppServerError else { return .refreshFailed }
+        switch error {
+        case .executableNotFound:
+            return .runtimeNotDetected
+        case .launchFailed:
+            return .appServerLaunchFailed
+        case .timeout, .noResponse:
+            return .appServerConnectionFailed
+        case .responseTooLarge, .invalidResponse, .serverError:
+            return .rpcUnavailable
+        }
     }
 }
 

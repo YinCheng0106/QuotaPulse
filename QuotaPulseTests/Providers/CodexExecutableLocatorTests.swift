@@ -48,6 +48,45 @@ final class CodexExecutableLocatorTests: XCTestCase {
         XCTAssertEqual(locator.locate(), resolved(bundledExecutable(in: chatGPTApp)))
     }
 
+    func testDiagnosticSnapshotReportsChatGPTWithoutExposingItsPath() throws {
+        let chatGPTApp = try makeDesktopApp(
+            at: root.appending(path: "Private User Folder/ChatGPT.app"),
+            name: "ChatGPT",
+            version: "26.818.1"
+        )
+        let locator = makeLocator(
+            chatGPTApplicationURLs: [chatGPTApp],
+            applicationURLs: []
+        )
+
+        let diagnostics = locator.diagnosticSnapshot()
+
+        XCTAssertTrue(diagnostics.chatGPTApplication.isDetected)
+        XCTAssertEqual(diagnostics.chatGPTApplication.version, DiagnosticVersion("26.818.1"))
+        XCTAssertEqual(diagnostics.runtimeSource, .chatGPTApplication)
+        XCTAssertTrue(diagnostics.runtimeDetected)
+        XCTAssertNil(diagnostics.failureCategory)
+    }
+
+    func testDiagnosticSnapshotDistinguishesInstalledAppFromMissingRuntime() throws {
+        let chatGPTApp = try makeDesktopApp(
+            at: root.appending(path: "Applications/ChatGPT.app"),
+            name: "ChatGPT",
+            executablePermissions: 0o644
+        )
+        let locator = makeLocator(
+            chatGPTApplicationURLs: [chatGPTApp],
+            applicationURLs: []
+        )
+
+        let diagnostics = locator.diagnosticSnapshot()
+
+        XCTAssertTrue(diagnostics.chatGPTApplication.isDetected)
+        XCTAssertFalse(diagnostics.runtimeDetected)
+        XCTAssertEqual(diagnostics.runtimeSource, .notDetected)
+        XCTAssertEqual(diagnostics.failureCategory, .runtimeNotExecutable)
+    }
+
     func testNSWorkspaceDiscoveredChatGPTAppPrecedesLegacyCodexAndStandalone() throws {
         let workspaceApp = try makeDesktopApp(
             at: root.appending(path: "Elsewhere/ChatGPT.app"), name: "ChatGPT"
@@ -261,7 +300,8 @@ final class CodexExecutableLocatorTests: XCTestCase {
         at url: URL,
         name: String,
         bundleIdentifier: String = CodexExecutableLocator.chatGPTBundleIdentifier,
-        executablePermissions: Int = 0o755
+        executablePermissions: Int = 0o755,
+        version: String = "1.0.0"
     ) throws -> URL {
         let contents = url.appending(path: "Contents")
         try FileManager.default.createDirectory(at: contents, withIntermediateDirectories: true)
@@ -269,7 +309,8 @@ final class CodexExecutableLocatorTests: XCTestCase {
             "CFBundleIdentifier": bundleIdentifier,
             "CFBundleName": name,
             "CFBundlePackageType": "APPL",
-            "CFBundleExecutable": name
+            "CFBundleExecutable": name,
+            "CFBundleShortVersionString": version
         ]
         let data = try PropertyListSerialization.data(
             fromPropertyList: plist, format: .xml, options: 0

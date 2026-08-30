@@ -19,11 +19,13 @@ final class AppModel {
     @ObservationIgnored private let refreshPolicy: RefreshPolicy
     @ObservationIgnored private let refreshSleeper: any RefreshSleeping
     @ObservationIgnored private let now: @Sendable () -> Date
+    @ObservationIgnored private let diagnosticEnvironment: CompatibilityDiagnosticEnvironment
     @ObservationIgnored private let lifecycleObservers: AppLifecycleObserverBag
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var scheduledRefreshTask: Task<Void, Never>?
     @ObservationIgnored private var coordinatorCancellationTask: Task<Void, Never>?
     @ObservationIgnored private var refreshAfterCurrentCompletes = false
+    @ObservationIgnored private var lastRefreshAttemptAt: Date?
 
     private var didStart = false
     private var isSleeping = false
@@ -41,6 +43,7 @@ final class AppModel {
         refreshPolicy: RefreshPolicy = .v01,
         refreshSleeper: any RefreshSleeping = ContinuousRefreshSleeper(),
         now: @escaping @Sendable () -> Date = Date.init,
+        diagnosticEnvironment: CompatibilityDiagnosticEnvironment = .current(),
         applicationNotificationCenter: NotificationCenter = .default,
         workspaceNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
         observesLifecycle: Bool = true
@@ -51,6 +54,7 @@ final class AppModel {
         self.refreshPolicy = refreshPolicy
         self.refreshSleeper = refreshSleeper
         self.now = now
+        self.diagnosticEnvironment = diagnosticEnvironment
         self.lifecycleObservers = AppLifecycleObserverBag(
             applicationNotificationCenter: applicationNotificationCenter,
             workspaceNotificationCenter: workspaceNotificationCenter
@@ -119,6 +123,16 @@ final class AppModel {
         await refreshTask?.value
     }
 
+    func compatibilityDiagnostics() async -> CompatibilityDiagnosticsSnapshot {
+        let contexts = await refreshCoordinator.providerDiagnostics()
+        return CompatibilityDiagnosticsSnapshot(
+            environment: diagnosticEnvironment,
+            providerStates: providerStates,
+            providerContexts: contexts,
+            lastRefreshAttemptAt: lastRefreshAttemptAt
+        )
+    }
+
     func applicationDidBecomeActive() {
         guard !isTerminating else { return }
         guard didStart else {
@@ -156,8 +170,9 @@ final class AppModel {
 
         cancelScheduledRefresh(clearDeadline: true)
         isRefreshing = true
+        lastRefreshAttemptAt = now()
         #if DEBUG
-        RuntimeDiagnostics.shared.refreshStarted(at: now())
+        RuntimeDiagnostics.shared.refreshStarted(at: lastRefreshAttemptAt ?? now())
         if RuntimeDiagnostics.shouldLogAutomaticSnapshots {
             RuntimeDiagnostics.shared.logSnapshot(reason: "refresh_started")
         }

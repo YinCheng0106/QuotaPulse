@@ -303,6 +303,23 @@ final class CodexProviderTests: XCTestCase {
             XCTAssertEqual(error as? CodexProviderError, .noRateLimits)
         }
     }
+
+    func testLiveCodexProviderWhenExplicitlyEnabled() async throws {
+        let isEnabled = ProcessInfo.processInfo.environment["QUOTAPULSE_RUN_LIVE_CODEX_TEST"] == "1"
+            || UserDefaults.standard.bool(forKey: "runLiveCodexProviderTest")
+        guard isEnabled else {
+            throw XCTSkip("Set QUOTAPULSE_RUN_LIVE_CODEX_TEST=1 for the opt-in live provider check.")
+        }
+
+        let snapshot = try await CodexProvider().fetchUsage()
+
+        XCTAssertEqual(snapshot.providerID, .codex)
+        XCTAssertEqual(snapshot.source.kind, .codexAppServer)
+        XCTAssertFalse(snapshot.windows.isEmpty)
+        XCTAssertTrue(snapshot.windows.allSatisfy { window in
+            !window.id.isEmpty && (window.usedPercentage != nil || window.resetAt != nil)
+        })
+    }
 }
 
 private struct StubCodexRateLimitsReader: CodexRateLimitsReading {

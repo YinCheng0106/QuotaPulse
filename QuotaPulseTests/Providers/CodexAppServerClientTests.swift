@@ -185,6 +185,53 @@ final class CodexAppServerClientTests: XCTestCase {
         XCTAssertEqual(response.rateLimits?.primary?.resetsAt, 2_000_003_600)
     }
 
+    func testHealthyRequestProducesConnectedCompatibleRuntimeDiagnostic() async throws {
+        let script = #"""
+        IFS= read -r initialize
+        IFS= read -r initialized
+        IFS= read -r rate_limits
+        printf '%s\n' '{"id":2,"result":{"rateLimits":{"primary":{"usedPercent":25}}}}'
+        while IFS= read -r rate_limits; do :; done
+        """#
+        let client = CodexAppServerClient(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", script],
+            timeout: .seconds(1)
+        )
+
+        _ = try await client.readRateLimits()
+        let diagnostics = await client.runtimeDiagnostic()
+        await client.shutdown()
+
+        XCTAssertEqual(diagnostics.runtimeSource, .standaloneCodex)
+        XCTAssertEqual(diagnostics.runtimeDetected, true)
+        XCTAssertEqual(diagnostics.compatibilityStatus, .compatible)
+        XCTAssertEqual(diagnostics.appServerState, .connected)
+        XCTAssertNil(diagnostics.lastFailureCategory)
+    }
+
+    func testTimeoutProducesSanitizedConnectionFailureDiagnostic() async {
+        let script = #"""
+        IFS= read -r initialize
+        IFS= read -r initialized
+        IFS= read -r rate_limits
+        exec /bin/sleep 5
+        """#
+        let client = CodexAppServerClient(
+            executableURL: URL(fileURLWithPath: "/bin/sh"),
+            arguments: ["-c", script],
+            timeout: .milliseconds(100)
+        )
+
+        _ = try? await client.readRateLimits()
+        let diagnostics = await client.runtimeDiagnostic()
+
+        XCTAssertEqual(diagnostics.runtimeDetected, true)
+        XCTAssertEqual(diagnostics.compatibilityStatus, .unverified)
+        XCTAssertEqual(diagnostics.appServerState, .disconnected)
+        XCTAssertEqual(diagnostics.lastFailureCategory, .appServerConnectionFailed)
+    }
+
     func testDoesNotExposeCallerWorkingDirectoryToAppServer() async throws {
         let script = #"""
         test "$PWD" = / || exit 1

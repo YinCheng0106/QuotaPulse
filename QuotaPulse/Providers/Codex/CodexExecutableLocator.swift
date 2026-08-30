@@ -2,6 +2,13 @@ import AppKit
 import Darwin
 import Foundation
 
+struct CodexRuntimeDiscovery: Equatable, Sendable {
+    let chatGPTApplication: DiagnosticHostApplicationState
+    let runtimeSource: DiagnosticRuntimeSource
+    let runtimeDetected: Bool
+    let failureCategory: DiagnosticFailureCategory?
+}
+
 final class CodexExecutableLocator: @unchecked Sendable {
     typealias ApplicationURLLookup = @Sendable (String) -> URL?
 
@@ -109,6 +116,68 @@ final class CodexExecutableLocator: @unchecked Sendable {
         return nil
     }
 
+    func diagnosticSnapshot() -> CodexRuntimeDiscovery {
+        let executable = locate()
+        let workspaceURL = applicationURLLookup(Self.chatGPTBundleIdentifier)
+        let chatGPTURLs = chatGPTApplicationURLs + [workspaceURL].compactMap { $0 }
+        let chatGPTBundle = chatGPTURLs.lazy.compactMap { url in
+            Self.applicationBundle(at: url, kind: .chatGPT)
+        }.first
+        let locatedSource = lock.withLock { cachedSource }
+
+        let runtimeSource: DiagnosticRuntimeSource
+        switch locatedSource {
+        case .application(_, .chatGPT):
+            runtimeSource = .chatGPTApplication
+        case .application(_, .legacyCodex):
+            runtimeSource = .legacyCodexApplication
+        case .standalone:
+            runtimeSource = .standaloneCodex
+        case nil:
+            if executable != nil {
+                // Explicit executable injection is handled by CodexAppServerClient.
+                runtimeSource = .standaloneCodex
+            } else {
+                runtimeSource = .notDetected
+            }
+        }
+
+        let hasInvalidCandidate: Bool
+        if executable == nil {
+            let appBundles = chatGPTURLs.compactMap {
+                Self.applicationBundle(at: $0, kind: .chatGPT)
+            } + applicationURLs.compactMap {
+                Self.applicationBundle(at: $0, kind: .legacyCodex)
+            }
+            let bundledCandidates = appBundles.map {
+                $0.bundleURL.appending(
+                    path: Self.bundledExecutablePath,
+                    directoryHint: .notDirectory
+                )
+            }
+            hasInvalidCandidate = (bundledCandidates + standaloneURLs).contains {
+                FileManager.default.fileExists(atPath: $0.path)
+            }
+        } else {
+            hasInvalidCandidate = false
+        }
+
+        return CodexRuntimeDiscovery(
+            chatGPTApplication: DiagnosticHostApplicationState(
+                application: .chatGPT,
+                isDetected: chatGPTBundle != nil,
+                version: DiagnosticVersion(
+                    chatGPTBundle?.object(
+                        forInfoDictionaryKey: "CFBundleShortVersionString"
+                    ) as? String
+                )
+            ),
+            runtimeSource: runtimeSource,
+            runtimeDetected: executable != nil,
+            failureCategory: hasInvalidCandidate ? .runtimeNotExecutable : nil
+        )
+    }
+
     static func defaultChatGPTApplicationURLs(
         homeDirectory: URL = FileManager.default.homeDirectoryForCurrentUser
     ) -> [URL] {
@@ -151,6 +220,16 @@ final class CodexExecutableLocator: @unchecked Sendable {
     }
 
     private static func executable(in applicationURL: URL, kind: ApplicationKind) -> URL? {
+        guard let bundle = applicationBundle(at: applicationURL, kind: kind) else { return nil }
+        return validatedExecutable(
+            bundle.bundleURL.appending(path: bundledExecutablePath, directoryHint: .notDirectory)
+        )
+    }
+
+    private static func applicationBundle(
+        at applicationURL: URL,
+        kind: ApplicationKind
+    ) -> Bundle? {
         guard applicationURL.isFileURL, applicationURL.path.hasPrefix("/"),
               hasTrustedAncestry(applicationURL),
               let resolvedPath = canonicalPath(applicationURL.path) else { return nil }
@@ -161,10 +240,7 @@ final class CodexExecutableLocator: @unchecked Sendable {
               resolvedApp.pathExtension == "app",
               let bundle = Bundle(url: resolvedApp),
               bundle.bundleIdentifier == codexBundleIdentifier else { return nil }
-
-        return validatedExecutable(
-            resolvedApp.appending(path: bundledExecutablePath, directoryHint: .notDirectory)
-        )
+        return bundle
     }
 
     private static func validatedExecutable(_ candidate: URL) -> URL? {

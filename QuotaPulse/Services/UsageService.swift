@@ -45,6 +45,23 @@ actor UsageService {
         return states
     }
 
+    func providerDiagnostics() async -> [ProviderDiagnosticContext] {
+        var diagnostics: [ProviderDiagnosticContext] = []
+        diagnostics.reserveCapacity(providers.count)
+
+        for provider in providers {
+            diagnostics.append(
+                ProviderDiagnosticContext(
+                    providerID: provider.id,
+                    isEnabled: await isProviderEnabled(provider.id),
+                    runtime: await provider.runtimeDiagnostic()
+                )
+            )
+        }
+
+        return diagnostics
+    }
+
     private func refresh(_ provider: any UsageProvider) async -> ProviderState? {
         #if DEBUG
         RuntimeDiagnostics.shared.providerRefreshStarted(provider.id)

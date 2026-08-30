@@ -88,6 +88,29 @@ final class SettingsIntegrationTests: XCTestCase {
         XCTAssertFalse(model.launchAtLoginUpdateFailed)
     }
 
+    func testCopyDiagnosticsWritesEnglishPrivacySafeReport() async {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let clipboard = SettingsDiagnosticClipboard()
+        let model = SettingsModel(
+            store: store,
+            appModel: makeAppModel(),
+            notificationService: SettingsNotificationService(),
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled),
+            diagnosticClipboard: clipboard
+        )
+
+        await model.copyDiagnostics()
+
+        XCTAssertEqual(clipboard.writeCount, 1)
+        XCTAssertTrue(clipboard.text?.contains("QuotaPulse Diagnostics") == true)
+        XCTAssertTrue(clipboard.text?.contains("Privacy:") == true)
+        XCTAssertEqual(
+            model.diagnosticsCopyFeedback,
+            AppLocalization.string("Diagnostics copied.")
+        )
+    }
+
     private func makeStore() -> (SettingsStore, UserDefaults, String) {
         let suiteName = "dev.quotapulse.tests.settings.integration.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -103,6 +126,18 @@ final class SettingsIntegrationTests: XCTestCase {
             notificationService: SettingsNotificationService(),
             observesLifecycle: false
         )
+    }
+}
+
+@MainActor
+private final class SettingsDiagnosticClipboard: DiagnosticClipboardWriting {
+    private(set) var writeCount = 0
+    private(set) var text: String?
+
+    func write(_ text: String) -> Bool {
+        writeCount += 1
+        self.text = text
+        return true
     }
 }
 

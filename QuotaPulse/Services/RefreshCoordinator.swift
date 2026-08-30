@@ -22,6 +22,10 @@ actor RefreshCoordinator {
         return states
     }
 
+    func providerDiagnostics() async -> [ProviderDiagnosticContext] {
+        await usageService.providerDiagnostics()
+    }
+
     func cancel() {
         refreshTask?.cancel()
     }

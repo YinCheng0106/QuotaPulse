@@ -30,6 +30,17 @@ struct ClaudeProvider: UsageProvider, Sendable {
         self.locale = locale
     }
 
+    func runtimeDiagnostic() async -> ProviderRuntimeDiagnostic {
+        ProviderRuntimeDiagnostic(
+            hostApplication: nil,
+            runtimeSource: .localSnapshot,
+            runtimeDetected: nil,
+            compatibilityStatus: .unverified,
+            appServerState: .notApplicable,
+            lastFailureCategory: nil
+        )
+    }
+
     func fetchUsage() async throws -> ProviderUsageSnapshot {
         let document: ClaudeUsageSnapshotDocument
         do {

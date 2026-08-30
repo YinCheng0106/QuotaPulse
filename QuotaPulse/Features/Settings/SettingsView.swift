@@ -48,6 +48,46 @@ struct SettingsView: View {
                 )
             }
 
+            Section("Diagnostics") {
+                if let diagnostics = model.diagnostics {
+                    LabeledContent("QuotaPulse") {
+                        Text(
+                            diagnostics.appVersion.map { "\($0.value) (\(diagnostics.buildNumber?.value ?? "—"))" }
+                                ?? "—"
+                        )
+                        .monospacedDigit()
+                    }
+
+                    ForEach(diagnostics.providers) { provider in
+                        ProviderDiagnosticsView(diagnostics: provider)
+                    }
+                } else {
+                    ProgressView("Loading diagnostics…")
+                        .controlSize(.small)
+                }
+
+                Button("Copy Diagnostics", systemImage: "doc.on.doc") {
+                    Task {
+                        await model.copyDiagnostics()
+                    }
+                }
+                .accessibilityHint(
+                    "Copies a privacy-safe English report for GitHub Issues."
+                )
+
+                if let feedback = model.diagnosticsCopyFeedback {
+                    Text(feedback)
+                        .foregroundStyle(.secondary)
+                }
+
+                Text(
+                    "Diagnostics exclude credentials, prompts, sessions, project data, private paths, and raw provider responses."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            }
+
             Section("Notifications") {
                 Toggle(
                     "Enable reset notifications",
@@ -127,10 +167,11 @@ struct SettingsView: View {
             #endif
         }
         .formStyle(.grouped)
-        .frame(width: 460, height: 520)
+        .frame(width: 460, height: 560)
         .padding()
         .task {
             await model.refreshSystemState()
+            await model.refreshDiagnostics()
         }
     }
 

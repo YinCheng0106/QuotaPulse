@@ -14,15 +14,18 @@ struct CodexProvider: UsageProvider, Sendable {
     let id = ProviderID.codex
 
     private let reader: any CodexRateLimitsReading
+    private let runtimeDiagnosticReader: (any CodexRuntimeDiagnosticReading)?
     private let now: @Sendable () -> Date
     private let locale: Locale
 
     init(
         reader: any CodexRateLimitsReading,
+        runtimeDiagnosticReader: (any CodexRuntimeDiagnosticReading)? = nil,
         now: @escaping @Sendable () -> Date = Date.init,
         locale: Locale = .autoupdatingCurrent
     ) {
         self.reader = reader
+        self.runtimeDiagnosticReader = runtimeDiagnosticReader
         self.now = now
         self.locale = locale
     }
@@ -32,11 +35,18 @@ struct CodexProvider: UsageProvider, Sendable {
         now: @escaping @Sendable () -> Date = Date.init,
         locale: Locale = .autoupdatingCurrent
     ) {
+        let client = CodexAppServerClient(locator: locator)
         self.init(
-            reader: CodexAppServerClient(locator: locator),
+            reader: client,
+            runtimeDiagnosticReader: client,
             now: now,
             locale: locale
         )
+    }
+
+    func runtimeDiagnostic() async -> ProviderRuntimeDiagnostic {
+        guard let runtimeDiagnosticReader else { return .unknown }
+        return await runtimeDiagnosticReader.runtimeDiagnostic()
     }
 
     func fetchUsage() async throws -> ProviderUsageSnapshot {
