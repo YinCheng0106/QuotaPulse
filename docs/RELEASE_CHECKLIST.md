@@ -1,6 +1,6 @@
 # QuotaPulse v0.1.0 Release Checklist
 
-Last audited: 2026-08-28
+Last audited: 2026-08-29
 
 Status labels:
 
@@ -81,7 +81,7 @@ Status labels:
 - [x] **AUTO** Created the initial Git commit as the public repository baseline.
 - [x] **AUTO** Added the selected MIT License at the repository root.
 - [x] **MANUAL** Rename the mistakenly created public repository from `QuotePulse` to `QuotaPulse`, update `origin`, and verify the README clone URL before tagging.
-- [ ] **DEFERRED** Add and configure the production App Icon asset; it remains an explicit release follow-up.
+- [x] **AUTO** Production App Icon is configured in `Assets.xcassets`; every required macOS 16–512 pt 1x/2x slot is populated, the compiled app contains `AppIcon.icns` and `Assets.car`, and clean Debug/Release builds emit no App Icon or asset-catalog warnings.
 
 ## Documentation
 

@@ -24,7 +24,6 @@ Developer ID signing, Hardened Runtime validation, notarization, and binary-dist
 ## Known limitations
 
 - macOS 14 or later; Apple silicon validated, Intel not yet validated
-- Production App Icon is still pending
 - No usage history, cloud sync, iPhone app, or Reset Intelligence
 
 See the [README](../README.md) for build-from-source instructions and the complete privacy and compatibility notes.
@@ -58,7 +57,6 @@ Developer ID 簽署、Hardened Runtime 驗證、公證（notarization）及二�
 ## 已知限制
 
 - 需 macOS 14 或以上版本；已驗證 Apple silicon，尚未驗證 Intel Mac
-- 正式版 App Icon 尚在製作中
 - 尚未提供用量歷史紀錄、雲端同步、iPhone App 或 Reset Intelligence
 
 請參閱 [README](../README.md)，以取得從原始碼建置的說明，以及完整的隱私與相容性注意事項。
