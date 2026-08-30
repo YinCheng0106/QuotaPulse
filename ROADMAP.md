@@ -122,7 +122,7 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 
 ## Milestone 5 — v0.1 發行準備
 
-狀態：release-readiness audit、MIT License 與初始 Git baseline 已完成；目前準備公開 GitHub v0.1.0。Developer ID、notarization 與 Production App Icon 依本次發行決策刻意延後，必須持續清楚標示為限制，不得宣稱已完成。
+狀態：release-readiness audit、MIT License、初始 Git baseline 與 Production App Icon 已完成；目前準備公開 GitHub v0.1.0。Developer ID 與 notarization 依本次發行決策刻意延後，必須持續清楚標示為限制，不得宣稱已完成。
 
 - 已選擇並加入 MIT License
 - 已補齊貢獻、安全性、隱私、建置、發行與 draft release notes 文件
@@ -131,7 +131,7 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 - 已啟用 GitHub Private Vulnerability Reporting
 - 最初的 v0.1.0 採 source-only GitHub Release，不附可下載 App、DMG 或安裝套件
 - README 的實際畫面截圖刻意延後，且目前不連結可能損壞的 placeholder 圖片
-- Production App Icon 保留為後續 release task
+- Production App Icon 已完成資產整合、各尺寸檢查與乾淨 Debug／Release 建置驗證
 - Developer ID signing、Hardened Runtime、notarization 與正式散布驗證延後處理
 
 完成條件：
@@ -140,7 +140,7 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 - 沒有已知的 prompt、原始碼、transcript、repository 或 credential 蒐集
 - 即時 provider 驗證與 fixture tests 清楚分開
 - source-only 狀態在 README 與 release notes 中一致揭露；未來附加 binary 前再完成對應 artifact 驗證
-- Developer ID、notarization 與 Production App Icon 仍清楚列為 deferred，不被誤寫成完成
+- Developer ID 與 notarization 仍清楚列為 deferred，不被誤寫成完成
 
 ## v0.1 之後
 
@@ -154,6 +154,8 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 
 ### Reset Intelligence
 
+- 已從 normalized provider snapshots 實作 provider-agnostic 本機 reset detection，並以 bounded persisted cycle state 避免 restart 重複通知
+- 已定義 `ResetEvent` value model 與最小 `ResetEventSource.fetchEvents()` abstraction
 - 定義可信來源與 publisher 標準
 - 擷取官方或明確核准的公開公告
 - 保留並顯示原始來源 URL、publisher、publication time 與 retrieval time
@@ -162,4 +164,62 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 - 設計來源更正與撤回處理
 - 為所有網路服務進行獨立隱私審查
 
-Reset Intelligence 必須與本機 provider adapters 分離，也不得以未經審查的 v0.1 network call 偷渡進產品。
+官方外部 Reset Intelligence ingestion 仍為 FUTURE。它必須與本機 provider adapters 分離，也不得以未經審查的 network call 偷渡進產品。
+
+## Post-v0.1 product roadmap（2026-08-30 strategy audit）
+
+本節保留上述 v0.1 歷史與已完成里程碑，並為後續工作重新排序。詳細問題、目標使用者、風險、依賴與 acceptance criteria 見 [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md)；競品證據與刻意不採用的模式見 [`docs/COMPETITIVE_ANALYSIS.md`](docs/COMPETITIVE_ANALYSIS.md)。
+
+QuotaPulse 的主要定位是 **重視隱私的 AI coding 額度選單列工具**。近期不把它擴張為通用 AI dashboard，也不投入 Production App Icon／branding migration；後者維持 deferred polish，除非實際阻擋散布。
+
+### v0.1.x — Polish／Adoption／Compatibility
+
+目標：讓既有產品更容易理解、回報問題與持續維護，不增加新的資料擷取面。
+
+1. 已加入 production、privacy-safe Diagnostics 與 allowlisted Copy Diagnostics；使用 provider-independent current-state model、英文固定格式與明確 privacy regression tests。
+2. disabled provider 不再出現在 Dashboard；Settings 保持唯一的重新啟用入口，refresh／notification 繼續跳過它。
+3. 建立公開 CI、unsigned Release build、compatibility matrix 與 privacy-safe issue template。
+4. 加入可略過的最小 first-launch onboarding：provider detection、資料邊界、refresh cadence、Launch at Login、通知說明，以及純 presentation 的 Remaining／Used 選擇。
+5. 對目前已實作的 local completed-reset notification 完成 release-level regression 與 opt-in 系統通知驗證，不重做 detector。
+
+完成條件：使用者可在不提供路徑、credential、prompt、transcript、session、token 或 raw payload 的情況下回報相容性；所有 provider disabled 時有單一 empty state；onboarding 失敗或略過不阻擋 dashboard；CI 與 live／system 驗證仍明確分列。
+
+### v0.2 — Product Experience／Trusted Distribution
+
+目標：移除 source-only 安裝摩擦，改善每天都會看到的呈現與第二個 provider 的可信度。
+
+1. 在維護者決定承諾 binary release 後，完成 Developer ID、Hardened Runtime、notarization、stapling、installed App、Gatekeeper 與 Launch at Login 驗證，提供 signed／notarized ZIP 或 DMG。
+2. binary 存在後加入 GitHub latest-release checker：手動與低頻背景檢查，只提示並開啟 release page，不自動下載或安裝。
+3. Settings 最多拆成 General／Providers／Notifications；Display 保留在 General，Diagnostics 先使用 sheet／入口，不建立空泛 Advanced tab。
+4. 將既有 Remaining／Used preference 納入 scalable Settings，並加入 Icon only／單一 pinned provider；不支援 rotation、multiple compact providers 或 automatic priority。
+5. 完成 Claude opt-in bridge 的 contract research、setup preview、backup／restore 與 live subscribed-account validation；未達成前持續 Experimental／Unverified。
+
+完成條件：fresh Mac 不需要 Xcode 即可驗證並啟動 App；更新提示不誤導 Homebrew／source 使用者；presentation 不複製 quota calculation；Claude setup 不靜默覆寫既有 `statusLine.command` 且可完整復原。
+
+### v0.3 — Reset Intelligence research
+
+目標：只在來源治理與維護責任成立時，研究 QuotaPulse 的長期差異化。
+
+1. 先以 maintainer-curated、GitHub-hosted static `ResetEvent` feed 做 MVP；每筆事件保留 publisher、source URL、publication／effective time、verification、correction／retraction 與 schema version。
+2. GitHub Actions 只負責 schema／URL／time validation 與 artifact 產生；規則優先，AI 只協助人工處理模糊候選，不能直接發布。
+3. App 端 local matching 不上傳 usage snapshot；feed 離線、過期或失敗不得影響本機 provider。
+4. 可平行做 coarse pacing 離線研究；若不能在 sleep gap、reset、跨裝置與不足 samples 時可靠輸出 `Insufficient data`，即停止交付。
+
+完成條件：Reset Intelligence 可更正、撤回、離線失敗且每筆可追溯到原始來源；任何 AI 摘要都不是 authoritative source；沒有本機 usage、workspace 或裝置識別送出。
+
+### Long-term／not committed
+
+- Sparkle 2：至少完成 2–3 個穩定 signed／notarized binary releases 後再導入 appcast、EdDSA、下載與安裝。
+- custom Homebrew tap：可信 artifact 穩定後；official Cask 再依 adoption 與 release cadence 評估。
+- remote compatibility manifest：只有文件 matrix 無法處理重複 packaging breakage 時。
+- Gemini／OpenCode：只有文件化、安全且 bounded 的 quota contract 存在時。
+- user-visible history／charts：只有 pacing research 證明能改變使用者行為時。
+- monetization：目前 deferred；核心 quota visibility、privacy 與基本 reset notifications 保持免費，先考慮 Sponsors／support，不做 client-side premium locks。
+
+### Explicitly deferred
+
+1. automated external Reset Intelligence backend／collector。
+2. burn-rate ETA、長期 history 與 charts。
+3. Gemini、OpenCode 或大規模 provider expansion。
+
+不採用 custom updater、credential／cookie access、transcript scanning、automatic provider rotation 或以 `xattr` 移除 quarantine 作為正式散布方案。
