@@ -1,6 +1,19 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "—" : {
+
+    },
+    "%@ (%@)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ (%2$@)"
+          }
+        }
+      }
+    },
     "1-hour reminder" : {
       "localizations" : {
         "zh-Hant" : {
@@ -61,12 +74,52 @@
         }
       }
     },
+    "App Server" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Server"
+          }
+        }
+      }
+    },
+    "App Server connection failed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Server 連線失敗"
+          }
+        }
+      }
+    },
+    "App Server launch failed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Server 啟動失敗"
+          }
+        }
+      }
+    },
     "Approval is required in System Settings > General > Login Items." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "需要前往「系統設定」›「一般」›「登入項目」核准。"
+          }
+        }
+      }
+    },
+    "Availability" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "可用狀態"
           }
         }
       }
@@ -124,6 +177,47 @@
         }
       }
     },
+    "Compatible" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相容"
+          }
+        }
+      }
+    },
+    "Connected" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已連線"
+          }
+        }
+      }
+    },
+    "Copies a privacy-safe English report for GitHub Issues." : {
+      "comment" : "Accessibility hint for Copy Diagnostics. The exported report is deliberately English-only for consistent GitHub triage.",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "複製不含私密資訊的英文報告，供 GitHub Issues 使用。"
+          }
+        }
+      }
+    },
+    "Copy Diagnostics" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "複製診斷資訊"
+          }
+        }
+      }
+    },
     "Development" : {
       "extractionState" : "manual",
       "localizations" : {
@@ -135,12 +229,64 @@
         }
       }
     },
+    "Diagnostics" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "診斷"
+          }
+        }
+      }
+    },
+    "Diagnostics copied." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已複製診斷資訊。"
+          }
+        }
+      }
+    },
+    "Diagnostics could not be copied." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法複製診斷資訊。"
+          }
+        }
+      }
+    },
+    "Diagnostics exclude credentials, prompts, sessions, project data, private paths, and raw provider responses." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "診斷資訊不包含憑證、提示內容、工作階段、專案資料、私密路徑或原始提供者回應。"
+          }
+        }
+      }
+    },
     "Disabled" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "已停用"
+          }
+        }
+      }
+    },
+    "Disconnected" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未連線"
           }
         }
       }
@@ -245,6 +391,16 @@
         }
       }
     },
+    "Enabled" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已啟用"
+          }
+        }
+      }
+    },
     "Error" : {
       "localizations" : {
         "zh-Hant" : {
@@ -275,6 +431,16 @@
         }
       }
     },
+    "Failed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "失敗"
+          }
+        }
+      }
+    },
     "General" : {
       "localizations" : {
         "zh-Hant" : {
@@ -285,12 +451,72 @@
         }
       }
     },
+    "Host app" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主應用程式"
+          }
+        }
+      }
+    },
+    "Host app version" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主應用程式版本"
+          }
+        }
+      }
+    },
+    "In progress" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "進行中"
+          }
+        }
+      }
+    },
     "Integration not configured" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "整合尚未設定"
+          }
+        }
+      }
+    },
+    "Last failure" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次失敗原因"
+          }
+        }
+      }
+    },
+    "Last refresh" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次重新整理"
+          }
+        }
+      }
+    },
+    "Last refresh attempt" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次嘗試重新整理"
           }
         }
       }
@@ -336,12 +562,32 @@
         }
       }
     },
+    "Launch failed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "啟動失敗"
+          }
+        }
+      }
+    },
     "Loading" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "載入中"
+          }
+        }
+      }
+    },
+    "Loading diagnostics…" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在載入診斷…"
           }
         }
       }
@@ -363,6 +609,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "本機通知已準備完成。"
+          }
+        }
+      }
+    },
+    "Local snapshot" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本機快照"
           }
         }
       }
@@ -398,6 +654,16 @@
         }
       }
     },
+    "No" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "否"
+          }
+        }
+      }
+    },
     "No previously fetched quota information is available." : {
       "localizations" : {
         "zh-Hant" : {
@@ -414,6 +680,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "目前沒有可用的配額週期。"
+          }
+        }
+      }
+    },
+    "Not applicable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不適用"
+          }
+        }
+      }
+    },
+    "Not attempted" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未嘗試"
           }
         }
       }
@@ -438,6 +724,26 @@
         }
       }
     },
+    "Not installed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未安裝"
+          }
+        }
+      }
+    },
+    "Not started" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未啟動"
+          }
+        }
+      }
+    },
     "Not updated yet" : {
       "localizations" : {
         "zh-Hant" : {
@@ -455,6 +761,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "尚未授予通知權限。"
+          }
+        }
+      }
+    },
+    "notification.reset.completed.body %@" : {
+      "comment" : "Completed reset notification body. The placeholder is a localized quota-window description from normalized domain data.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your %@ has refreshed."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的「%@」已重新整理。"
+          }
+        }
+      }
+    },
+    "notification.reset.completed.title %@" : {
+      "comment" : "Completed reset notification title. The placeholder is the provider product name.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ quota reset"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 配額已重設"
           }
         }
       }
@@ -627,6 +967,16 @@
     "QuotaPulse" : {
       "shouldTranslate" : false
     },
+    "Refresh failed" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新整理失敗"
+          }
+        }
+      }
+    },
     "Refresh needed" : {
       "localizations" : {
         "zh-Hant" : {
@@ -708,6 +1058,16 @@
         }
       }
     },
+    "Reset metadata" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重設資料"
+          }
+        }
+      }
+    },
     "Reset time unavailable" : {
       "localizations" : {
         "zh-Hant" : {
@@ -742,6 +1102,56 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重置時間：%@"
+          }
+        }
+      }
+    },
+    "Runtime" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "執行環境"
+          }
+        }
+      }
+    },
+    "Runtime compatibility" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "執行環境相容性"
+          }
+        }
+      }
+    },
+    "Runtime detected" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已偵測執行環境"
+          }
+        }
+      }
+    },
+    "Runtime is not executable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "執行環境無法執行"
+          }
+        }
+      }
+    },
+    "Runtime not detected" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未偵測到執行環境"
           }
         }
       }
@@ -828,6 +1238,26 @@
         }
       }
     },
+    "Standalone Codex" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "獨立版 Codex"
+          }
+        }
+      }
+    },
+    "Successful" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成功"
+          }
+        }
+      }
+    },
     "Test notification scheduled for about 5 seconds from now." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -899,12 +1329,42 @@
         }
       }
     },
+    "Unknown" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未知"
+          }
+        }
+      }
+    },
     "Unsupported" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "不支援"
+          }
+        }
+      }
+    },
+    "Unsupported authentication" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不支援的驗證方式"
+          }
+        }
+      }
+    },
+    "Unverified" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "尚未驗證"
           }
         }
       }
@@ -970,6 +1430,26 @@
         }
       }
     },
+    "Usage metadata" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用量資料"
+          }
+        }
+      }
+    },
+    "Usage request unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法使用用量查詢"
+          }
+        }
+      }
+    },
     "Usage unavailable" : {
       "localizations" : {
         "zh-Hant" : {
@@ -1024,6 +1504,54 @@
         }
       }
     },
+    "window.description.5-hour" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5-hour usage window"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "5 小時配額週期"
+          }
+        }
+      }
+    },
+    "window.description.7-day" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7-day usage window"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "7 天配額週期"
+          }
+        }
+      }
+    },
+    "window.description.generic" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "quota window"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "配額週期"
+          }
+        }
+      }
+    },
     "Writes a privacy-safe runtime diagnostics snapshot to Console." : {
       "extractionState" : "manual",
       "localizations" : {
@@ -1031,6 +1559,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "將不含私密資訊的執行階段診斷快照寫入「主控台」。"
+          }
+        }
+      }
+    },
+    "Yes" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "是"
           }
         }
       }

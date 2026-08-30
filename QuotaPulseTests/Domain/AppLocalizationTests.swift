@@ -67,10 +67,64 @@ final class AppLocalizationTests: XCTestCase {
         )
     }
 
+    func testCompletedResetNotificationUsesLocalizedProviderAndWindowData() {
+        XCTAssertEqual(
+            AppLocalization.resetCompletedTitle(
+                providerName: "Codex",
+                locale: Locale(identifier: "en")
+            ),
+            "Codex quota reset"
+        )
+        XCTAssertEqual(
+            AppLocalization.resetCompletedBody(
+                windowLabel: "Primary window",
+                duration: .seconds(5 * 60 * 60),
+                locale: Locale(identifier: "en")
+            ),
+            "Your 5-hour usage window has refreshed."
+        )
+        XCTAssertEqual(
+            AppLocalization.resetCompletedBody(
+                windowLabel: "主要配額週期",
+                duration: .seconds(7 * 24 * 60 * 60),
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "你的「7 天配額週期」已重新整理。"
+        )
+    }
+
     func testUnsupportedSimplifiedChineseFallsBackToEnglish() {
         XCTAssertEqual(
             AppLocalization.string("Settings", locale: Locale(identifier: "zh-Hans-CN")),
             "Settings"
+        )
+    }
+
+    func testDiagnosticsUIUsesSupportedLanguages() {
+        XCTAssertEqual(
+            AppLocalization.string("Diagnostics", locale: Locale(identifier: "en")),
+            "Diagnostics"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Diagnostics",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "診斷"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "App Server connection failed",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "App Server 連線失敗"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Diagnostics copied.",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "已複製診斷資訊。"
         )
     }
 }

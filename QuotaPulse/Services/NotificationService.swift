@@ -65,6 +65,16 @@ extension UserNotificationCentering {
 protocol NotificationStateStoring: AnyObject {
     func load() -> NotificationDeduplicationState
     func save(_ state: NotificationDeduplicationState)
+    func loadLocalResetDetectionState() -> LocalResetDetectionState
+    func saveLocalResetDetectionState(_ state: LocalResetDetectionState)
+}
+
+extension NotificationStateStoring {
+    func loadLocalResetDetectionState() -> LocalResetDetectionState {
+        LocalResetDetectionState()
+    }
+
+    func saveLocalResetDetectionState(_ state: LocalResetDetectionState) {}
 }
 
 @MainActor
@@ -72,6 +82,7 @@ final class NotificationService: NotificationServicing {
     private let center: any UserNotificationCentering
     private let stateStore: any NotificationStateStoring
     private let policy: ResetNotificationPolicy
+    private let localResetDetector: LocalResetDetector
     private let currentDate: @Sendable () -> Date
     private let locale: Locale
     private weak var preferences: (any AppPreferencesProviding)?
@@ -83,6 +94,7 @@ final class NotificationService: NotificationServicing {
         center: any UserNotificationCentering = UserNotificationCenterClient(),
         stateStore: any NotificationStateStoring = UserDefaultsNotificationStateStore(),
         policy: ResetNotificationPolicy = .v01,
+        localResetDetector: LocalResetDetector = .standard,
         preferences: (any AppPreferencesProviding)? = nil,
         currentDate: @escaping @Sendable () -> Date = Date.init,
         locale: Locale = .autoupdatingCurrent
@@ -90,6 +102,7 @@ final class NotificationService: NotificationServicing {
         self.center = center
         self.stateStore = stateStore
         self.policy = policy
+        self.localResetDetector = localResetDetector
         self.preferences = preferences
         self.currentDate = currentDate
         self.locale = locale
@@ -98,13 +111,23 @@ final class NotificationService: NotificationServicing {
     func evaluate(_ providerStates: [ProviderState], now: Date) async {
         await removeLegacyPendingRequestsIfNeeded()
         let notificationPreferences = preferences?.notificationPreferences ?? .defaults
-        guard notificationPreferences.isEnabled else { return }
         let enabledStates: [ProviderState]
         if let preferences {
             enabledStates = providerStates.filter { preferences.isProviderEnabled($0.providerID) }
         } else {
             enabledStates = providerStates
         }
+
+        let localResetEvaluation = localResetDetector.evaluate(
+            enabledStates,
+            state: stateStore.loadLocalResetDetectionState(),
+            now: now
+        )
+        stateStore.saveLocalResetDetectionState(localResetEvaluation.state)
+
+        // Keep the detector baseline current while notifications are disabled so
+        // re-enabling cannot announce a reset that happened earlier.
+        guard notificationPreferences.isEnabled else { return }
 
         evaluationGeneration &+= 1
         let generation = evaluationGeneration
@@ -118,7 +141,9 @@ final class NotificationService: NotificationServicing {
         )
         stateStore.save(evaluation.state)
 
-        guard !evaluation.decisions.isEmpty else { return }
+        guard !evaluation.decisions.isEmpty || !localResetEvaluation.resets.isEmpty else {
+            return
+        }
         guard (try? await isAuthorized(requestIfNeeded: true)) == true else { return }
         guard generation == evaluationGeneration, !Task.isCancelled else { return }
 
@@ -134,6 +159,14 @@ final class NotificationService: NotificationServicing {
             locale: locale
         )
         stateStore.save(deliveryEvaluation.state)
+
+        for reset in localResetEvaluation.resets where localResetDetector.isFreshForDelivery(
+            reset,
+            now: deliveryNow
+        ) {
+            guard generation == evaluationGeneration, !Task.isCancelled else { return }
+            try? await center.add(localResetRequest(for: reset))
+        }
 
         for decision in deliveryEvaluation.decisions {
             guard generation == evaluationGeneration, !Task.isCancelled else { return }
@@ -167,6 +200,7 @@ final class NotificationService: NotificationServicing {
         let identifiersToRemove: [String]
         if notificationPreferences.isEnabled {
             identifiersToRemove = identifiers.filter { identifier in
+                guard identifier.hasPrefix("quotapulse.reset.") else { return false }
                 guard let threshold = resetThreshold(from: identifier) else {
                     return isLegacyResetIdentifier(identifier)
                 }
@@ -175,7 +209,9 @@ final class NotificationService: NotificationServicing {
                     .contains(threshold.minutes)
             }
         } else {
-            identifiersToRemove = identifiers
+            identifiersToRemove = await center.pendingRequestIdentifiers().filter(
+                isQuotaResetIdentifier
+            )
         }
         if !identifiersToRemove.isEmpty {
             center.removePendingRequests(withIdentifiers: identifiersToRemove)
@@ -246,6 +282,40 @@ final class NotificationService: NotificationServicing {
         guard identifier.hasPrefix("quotapulse.reset.") else { return false }
         guard let suffix = identifier.split(separator: ".").last else { return false }
         return suffix.hasSuffix("h")
+    }
+
+    private func isQuotaResetIdentifier(_ identifier: String) -> Bool {
+        identifier.hasPrefix("quotapulse.reset.")
+            || identifier.hasPrefix("quotapulse.reset-completed.")
+    }
+
+    private func localResetRequest(for reset: DetectedQuotaReset) -> LocalNotificationRequest {
+        LocalNotificationRequest(
+            identifier: [
+                "quotapulse.reset-completed",
+                reset.identity.providerID.rawValue,
+                encodedIdentifierComponent(reset.identity.windowID),
+                encodedIdentifierComponent(reset.identity.cycleIdentifier),
+            ].joined(separator: "."),
+            title: AppLocalization.resetCompletedTitle(
+                providerName: reset.identity.providerID.displayName,
+                locale: locale
+            ),
+            body: AppLocalization.resetCompletedBody(
+                windowLabel: reset.windowLabel,
+                duration: reset.windowDuration,
+                locale: locale
+            ),
+            delay: 1
+        )
+    }
+
+    private func encodedIdentifierComponent(_ value: String) -> String {
+        Data(value.utf8)
+            .base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
     }
 
     private func resetThreshold(
@@ -341,12 +411,14 @@ final class UserDefaultsNotificationStateStore: NotificationStateStoring {
 
     private let defaults: UserDefaults
     private let key: String
+    private let localResetKey: String
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
     init(defaults: UserDefaults = .standard, key: String = defaultKey) {
         self.defaults = defaults
         self.key = key
+        self.localResetKey = "\(key).local-reset.v1"
         encoder.outputFormatting = [.sortedKeys]
     }
 
@@ -373,6 +445,37 @@ final class UserDefaultsNotificationStateStore: NotificationStateStoring {
 
             guard !boundedState.entries.isEmpty else {
                 defaults.removeObject(forKey: key)
+                return
+            }
+            boundedState.entries.removeLast()
+        }
+    }
+
+    func loadLocalResetDetectionState() -> LocalResetDetectionState {
+        guard
+            let data = defaults.data(forKey: localResetKey),
+            data.count <= Self.maximumEncodedStateBytes,
+            var state = try? decoder.decode(LocalResetDetectionState.self, from: data),
+            state.schemaVersion == LocalResetDetectionState.currentSchemaVersion
+        else {
+            return LocalResetDetectionState()
+        }
+        state.entries = Array(state.entries.prefix(32))
+        return state
+    }
+
+    func saveLocalResetDetectionState(_ state: LocalResetDetectionState) {
+        var boundedState = state
+        boundedState.entries = Array(boundedState.entries.prefix(32))
+
+        while let data = try? encoder.encode(boundedState) {
+            if data.count <= Self.maximumEncodedStateBytes {
+                defaults.set(data, forKey: localResetKey)
+                return
+            }
+
+            guard !boundedState.entries.isEmpty else {
+                defaults.removeObject(forKey: localResetKey)
                 return
             }
             boundedState.entries.removeLast()

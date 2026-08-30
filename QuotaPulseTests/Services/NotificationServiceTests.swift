@@ -195,6 +195,110 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertTrue(relaunchedCenter.requests.isEmpty)
     }
 
+    func testGenuineLocalResetEmitsOneLocalizedCompletedNotification() async throws {
+        let (preferences, defaults, suiteName) = makePreferencesWithRemindersDisabled()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let center = TestUserNotificationCenter()
+        let store = TestNotificationStateStore()
+        let service = NotificationService(
+            center: center,
+            stateStore: store,
+            preferences: preferences,
+            locale: Locale(identifier: "en")
+        )
+        let oldReset = now.addingTimeInterval(60 * 60)
+
+        await service.evaluate(
+            [makeState(
+                resetAt: oldReset,
+                duration: .seconds(5 * 60 * 60),
+                usedPercentage: 82,
+                capturedAt: now
+            )],
+            now: now
+        )
+        let afterCapture = oldReset.addingTimeInterval(30)
+        let refreshedState = makeState(
+            resetAt: oldReset.addingTimeInterval(5 * 60 * 60),
+            duration: .seconds(5 * 60 * 60),
+            usedPercentage: 1,
+            capturedAt: afterCapture
+        )
+        await service.evaluate([refreshedState], now: afterCapture)
+        await service.evaluate(
+            [makeState(
+                resetAt: oldReset.addingTimeInterval(5 * 60 * 60),
+                duration: .seconds(5 * 60 * 60),
+                usedPercentage: 1,
+                capturedAt: afterCapture.addingTimeInterval(60)
+            )],
+            now: afterCapture.addingTimeInterval(60)
+        )
+
+        let request = try XCTUnwrap(center.requests.first)
+        XCTAssertEqual(center.requests.count, 1)
+        XCTAssertTrue(request.identifier.hasPrefix("quotapulse.reset-completed.codex."))
+        XCTAssertEqual(request.title, "Codex quota reset")
+        XCTAssertEqual(request.body, "Your 5-hour usage window has refreshed.")
+    }
+
+    func testRestartDoesNotDuplicateCompletedResetNotification() async {
+        let suiteName = "dev.quotapulse.tests.local-reset-restart.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        disableAllReminders(in: preferences)
+        let key = "local-reset-deduplication"
+        let firstCenter = TestUserNotificationCenter()
+        let firstService = NotificationService(
+            center: firstCenter,
+            stateStore: UserDefaultsNotificationStateStore(defaults: defaults, key: key),
+            preferences: preferences,
+            locale: Locale(identifier: "en")
+        )
+        let oldReset = now.addingTimeInterval(60 * 60)
+        await firstService.evaluate(
+            [makeState(
+                resetAt: oldReset,
+                duration: .seconds(5 * 60 * 60),
+                usedPercentage: 82,
+                capturedAt: now
+            )],
+            now: now
+        )
+        let afterCapture = oldReset.addingTimeInterval(30)
+        let nextReset = oldReset.addingTimeInterval(5 * 60 * 60)
+        await firstService.evaluate(
+            [makeState(
+                resetAt: nextReset,
+                duration: .seconds(5 * 60 * 60),
+                usedPercentage: 1,
+                capturedAt: afterCapture
+            )],
+            now: afterCapture
+        )
+
+        let relaunchedCenter = TestUserNotificationCenter()
+        let relaunchedService = NotificationService(
+            center: relaunchedCenter,
+            stateStore: UserDefaultsNotificationStateStore(defaults: defaults, key: key),
+            preferences: preferences,
+            locale: Locale(identifier: "en")
+        )
+        await relaunchedService.evaluate(
+            [makeState(
+                resetAt: nextReset,
+                duration: .seconds(5 * 60 * 60),
+                usedPercentage: 1,
+                capturedAt: afterCapture.addingTimeInterval(60)
+            )],
+            now: afterCapture.addingTimeInterval(60)
+        )
+
+        XCTAssertEqual(firstCenter.requests.count, 1)
+        XCTAssertTrue(relaunchedCenter.requests.isEmpty)
+    }
+
     func testRepeatedManualRefreshDoesNotDuplicateNotification() async {
         let center = TestUserNotificationCenter()
         let notificationService = NotificationService(
@@ -681,6 +785,22 @@ final class NotificationServiceTests: XCTestCase {
         )
     }
 
+    private func makePreferencesWithRemindersDisabled() -> (SettingsStore, UserDefaults, String) {
+        let suiteName = "dev.quotapulse.tests.local-reset-preferences.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        let preferences = SettingsStore(defaults: defaults)
+        disableAllReminders(in: preferences)
+        return (preferences, defaults, suiteName)
+    }
+
+    private func disableAllReminders(in preferences: SettingsStore) {
+        preferences.setReminder(windowClass: .short, minutes: 60, enabled: false)
+        preferences.setReminder(windowClass: .short, minutes: 30, enabled: false)
+        preferences.setReminder(windowClass: .long, minutes: 24 * 60, enabled: false)
+        preferences.setReminder(windowClass: .long, minutes: 6 * 60, enabled: false)
+        preferences.setReminder(windowClass: .long, minutes: 60, enabled: false)
+    }
+
     private func makeState(
         providerID: ProviderID = .codex,
         status: ProviderStatus = .available,
@@ -799,6 +919,7 @@ private final class TestDateSource: @unchecked Sendable {
 @MainActor
 private final class SharedNotificationState {
     var state = NotificationDeduplicationState()
+    var localResetState = LocalResetDetectionState()
 }
 
 @MainActor
@@ -819,6 +940,14 @@ private final class TestNotificationStateStore: NotificationStateStoring {
 
     func save(_ state: NotificationDeduplicationState) {
         sharedState.state = state
+    }
+
+    func loadLocalResetDetectionState() -> LocalResetDetectionState {
+        sharedState.localResetState
+    }
+
+    func saveLocalResetDetectionState(_ state: LocalResetDetectionState) {
+        sharedState.localResetState = state
     }
 }
 
