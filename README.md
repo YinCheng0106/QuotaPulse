@@ -19,6 +19,7 @@ Coding-agent limits often reset on different schedules. QuotaPulse keeps the cur
 - Reset times and minute-level countdowns
 - Local reset reminders through macOS notifications
 - Compact Settings for Launch at Login, provider enablement, and reminder thresholds
+- Privacy-safe compatibility diagnostics with a copyable GitHub issue report
 - English and Traditional Chinese localization
 - Conservative refresh scheduling designed for lightweight long-running use
 - Local, privacy-first processing with no third-party runtime dependencies
@@ -79,6 +80,8 @@ Codex remains responsible for authentication. QuotaPulse does not read or copy `
 
 Reset reminders are scheduled locally through macOS `UserNotifications` after a fresh provider refresh when at least 20% of the quota remains. Short quota windows can notify at 1 hour and 30 minutes; long windows can notify at 24 hours, 6 hours, and 1 hour when the threshold fits the window. Notifications can be disabled globally or by threshold in Settings.
 
+QuotaPulse also compares bounded normalized provider state across refreshes to detect a genuine new quota cycle and can notify once when that window has refreshed. Percentage decreases alone do not count as resets, and persisted cycle identity prevents duplicate notifications after restart. Official external Reset Intelligence feeds are a future phase; see [docs/RESET_INTELLIGENCE.md](docs/RESET_INTELLIGENCE.md).
+
 ## Privacy
 
 QuotaPulse processes usage data locally and does not require a QuotaPulse account, backend, analytics service, or cloud sync. It is designed not to intentionally upload:
@@ -98,6 +101,12 @@ QuotaPulse favors event-driven updates, a conservative refresh cadence, bounded 
 
 In approximately one hour of development-machine testing, QuotaPulse idle memory remained around 48 MB. Opening the menu or Settings temporarily reached about 70 MB, and refreshes temporarily added roughly 10–20 MB before returning toward baseline. Idle CPU was observed near zero. These are observations from one development environment, not universal guarantees. See [docs/PERFORMANCE.md](docs/PERFORMANCE.md) for conditions and limitations.
 
+## Provider compatibility troubleshooting
+
+If provider usage becomes unavailable, open **Settings → Diagnostics** and select **Copy Diagnostics**. Paste the English report into the GitHub issue. The report contains only allowlisted version, system, provider, runtime, connection, refresh, and metadata-availability fields; it excludes credentials, prompts, sessions, project data, private paths, raw provider responses, and exact quota percentages.
+
+Do not attach raw app-server output, Codex session files, authentication files, or broad system logs.
+
 ## Known limitations
 
 - Requires macOS 14 or later
@@ -105,14 +114,13 @@ In approximately one hour of development-machine testing, QuotaPulse idle memory
 - ChatGPT.app Codex runtime discovery depends on an undocumented bundle path
 - Claude Code support is Experimental / Unverified
 - The initial v0.1.0 release is source-only; downloadable binary distribution is not yet validated
-- Production App Icon is still a release follow-up
 - No usage history or cloud sync
 - No iPhone app
-- Reset Intelligence is not implemented
+- Official external Reset Intelligence feed ingestion is not implemented
 
 ## Roadmap
 
-v0.1 focuses on reliable local quota monitoring. Future work may include a reviewed Claude Code opt-in bridge, broader provider and hardware validation, signed/notarized distribution, a production App Icon, and source-linked Reset Intelligence. None of these are implemented claims. See [ROADMAP.md](ROADMAP.md).
+QuotaPulse now includes local reset-cycle detection. Future work may include a reviewed Claude Code opt-in bridge, broader provider and hardware validation, signed/notarized distribution, and source-linked official Reset Intelligence feed ingestion. These future items are not implemented claims. See [ROADMAP.md](ROADMAP.md).
 
 ## Contributing
 

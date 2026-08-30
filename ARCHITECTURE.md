@@ -1,6 +1,6 @@
 # QuotaPulse 架構
 
-狀態：Milestone 1 實作基準、Codex provider core、Claude Code snapshot provider core、共用應用程式整合與 v0.1 本機 reset notifications，2026-08-26。Production `AppDependencies` 已透過 `UsageProvider` 接入兩個 adapters；SwiftUI previews 保持 mock-only。Claude opt-in status-line bridge 尚未實作。
+狀態：Milestone 1 實作基準、Codex provider core、Claude Code snapshot provider core、共用應用程式整合、v0.1 reset reminders、provider-agnostic 本機 reset detection，以及 production privacy-safe compatibility diagnostics，2026-08-30。Production `AppDependencies` 已透過 `UsageProvider` 接入兩個 adapters；SwiftUI previews 保持 mock-only。Claude opt-in status-line bridge 與外部 Reset Intelligence feed 尚未實作。
 
 ## 1. 目標與限制
 
@@ -42,6 +42,10 @@ MenuBarExtra / Settings
           |
           v
    RefreshCoordinator ------> NotificationService
+                                  |
+                                  +----> ResetNotificationPolicy
+                                  |
+                                  +----> LocalResetDetector ----> bounded local state
           |
           v
      UsageService actor
@@ -56,10 +60,10 @@ MenuBarExtra / Settings
                                       opt-in status-line bridge（尚未實作）
 
 未來的獨立路徑：
-ResetEventService ----> remote announcement sources
+ResetEventSource ----> trusted, lightweight JSON feed
           |
           v
-ResetEvent，保留不可變的原始來源 URL 與 publisher metadata
+ResetEvent，保留不可變的原始來源 URL 與 source name
 ```
 
 UI 只接收正規化後的 snapshot；不解析 provider payload、不啟動指令，也不讀取檔案。
@@ -81,6 +85,7 @@ struct UsageWindow: Identifiable, Equatable, Sendable {
     let usedPercentage: Double?
     let resetAt: Date?
     let duration: Duration?
+    let resetCycleIdentifier: String?
 }
 
 struct ProviderUsageSnapshot: Equatable, Sendable {
@@ -91,7 +96,7 @@ struct ProviderUsageSnapshot: Equatable, Sendable {
 }
 ```
 
-支援狀態包含 `loading`、`available`、`stale`、`notConfigured`、`notInstalled`、`unsupportedAuthentication` 與 `failed`。`failed` 只攜帶正規化的 `ProviderFailure`（`refreshFailed`、`runtimeLaunchFailed`、`usageUnavailable`），不攜帶 raw error message。每個額度視窗都使用穩定 ID，因為同一 provider 可能同時提供數個視窗。
+支援狀態包含 `loading`、`available`、`stale`、`notConfigured`、`notInstalled`、`unsupportedAuthentication` 與 `failed`。`failed` 只攜帶正規化的 `ProviderFailure`（`refreshFailed`、`runtimeLaunchFailed`、`usageUnavailable`），不攜帶 raw error message。每個額度視窗都使用穩定 ID，因為同一 provider 可能同時提供數個視窗。`UsageWindow.id` 識別視窗類型；optional `resetCycleIdentifier` 則識別該視窗的特定 reset cycle。Provider 沒有提供 cycle metadata 時，本機 detector 才以分鐘化 `resetAt` 作為 fallback cycle identity。
 
 存在的百分比必須是有限數值。原始 provider 值可保留在 domain model，實際繪製 progress 時才限制於 0...100；若 provider 只回傳有效 `resetAt`，window 仍可存在，但 UI 與通知都不得補造 percentage。`resetAt` 已經過期不代表額度真的重設，也不能推論用量為零；舊 snapshot 應標示為過期，直到 provider 提供新資料。
 
@@ -262,6 +267,20 @@ Service 在提交 request 前先持久化 threshold claim，以 App restart 與�
 
 之後先讀 system settings；`.denied` 不再要求、不送通知，也不影響 provider refresh、UI 或下一輪排程。使用者日後在 System Settings 重新允許後，尚未 claim 且仍 eligible 的 threshold 可在下一輪 refresh 送出。`UserNotificationCenterClient` 持有 notification center delegate，讓 App 在前景時也能要求 banner／sound presentation。Debug build 的 Settings 提供 development-only action，透過同一個 `UserNotificationCenterClient` 要求授權並排定約五秒後的固定 identifier 測試通知；其 protocol method、model action、feedback state 與 UI 全部以 `#if DEBUG` 排除於 Release。授權與本機通知提交遵循 Apple 的 [Requesting authorization](https://developer.apple.com/documentation/usernotifications/asking-permission-to-use-notifications) 與 [Scheduling a notification locally](https://developer.apple.com/documentation/usernotifications/scheduling-a-notification-locally-from-your-app) 流程。
 
+### 9.6 本機 quota reset detection
+
+`LocalResetDetector` 只在既有 provider refresh 完成後評估新鮮、真實來源的 `.available` snapshot，沒有自己的 timer、polling loop 或 process。它是 provider-agnostic 的 pure value type，輸入 normalized `ProviderState` 與有上限的先前狀態，輸出新狀態與 `DetectedQuotaReset`。
+
+初次看到 provider/window 只建立 baseline，不送通知。之後只在有新鮮、時間順序正確的觀測時比較。強證據依優先度為：
+
+- provider 提供的 explicit cycle identifier 改變
+- 舊 reset boundary 已到（含 5 分鐘 clock-skew 容忍），且 `resetAt` 進入新視窗
+- 使用量至少下降 25 percentage points，且 `resetAt` 往後移動足以代表新視窗（有 duration 時至少一半 duration；否則至少 30 分鐘）
+
+單獨 percentage 下降不計為 reset。小於等於 2 分鐘的 reset timestamp 修正視為同一 cycle。Stale、out-of-order、malformed、mock 與暫時缺少 `resetAt` 的 snapshot 都不產生 reset；觀測間隔超過 2 小時時只重建 baseline，避免 app restart 或 provider reconnect 後猜測中間發生的事件。
+
+Completed-reset 通知以 provider 顯示名稱與 normalized window label/duration 產生在地化文案。去重 identity 是 `providerID + UsageWindow.id + cycleIdentifier`。Detector 在通知授權與提交前就把 cycle claim 以獨立 schema 保存，因此選擇 at-most-once：提交失敗可能漏送，但同一 cycle 不會因 restart 或重複 refresh 再送。狀態最多 32 個 provider/window entries、每個 identifier 最多 256 bytes，且 encoded payload 上限 64 KiB；不保存 usage history。
+
 ## 10. 設定
 
 v0.1 使用原生 `Settings` scene 與 `@MainActor SettingsStore`。`SettingsStore` 是 provider enablement、通知總開關，以及短視窗 1 小時／30 分鐘與長視窗 24／6／1 小時門檻的單一來源，並以 typed UserDefaults keys 保存；SwiftUI 只透過 `SettingsModel` 修改 store，再由 `UsageService` 與 `NotificationService` 讀取同一份狀態。短、長視窗的 1 小時選項彼此獨立，舊版共用 1 小時偏好會作為短視窗偏好的 migration 預設。`NotificationService` 關閉時不再建立提醒，並移除 QuotaPulse 自己的 pending reset requests；關閉單一門檻只移除相符 duration class 的門檻。
@@ -274,27 +293,55 @@ Provider 停用後，`UsageService` 仍保留 provider 順序與 normalized `.di
 
 Claude Code 在 Settings 明確標為 Experimental／Unverified，只有 enable／disable，沒有 bridge 安裝或設定。不得使用 iCloud key-value storage，也不得保存 provider 憑證。
 
-## 11. 未來 Reset Intelligence 邊界
+## 11. Compatibility Diagnostics
 
-Reset Intelligence 是獨立資料產品，不是 `UsageProvider` 的另一個 method。
+Production diagnostics 使用 provider-independent、current-state-only 的 `CompatibilityDiagnosticsSnapshot`。`AppModel` 擁有 last refresh attempt 與目前 `ProviderState`；`UsageService.providerDiagnostics()` 依既有 provider 順序，按需取得每個 adapter 的 `ProviderRuntimeDiagnostic`，但不呼叫 `fetchUsage()`。`SettingsModel` 只保留目前 snapshot 與 copy feedback，不建立診斷歷史。
 
 ```swift
-struct ResetEvent: Identifiable, Sendable {
-    let id: String
-    let providerID: ProviderID
-    let announcedResetAt: Date?
-    let publishedAt: Date?
-    let publisher: String
-    let originalSourceURL: URL
-    let retrievedAt: Date
-    let scope: ResetScope
-    let trust: ResetTrust
+protocol UsageProvider: Sendable {
+    var id: ProviderID { get }
+    func fetchUsage() async throws -> ProviderUsageSnapshot
+    func runtimeDiagnostic() async -> ProviderRuntimeDiagnostic
 }
 ```
 
-`ResetEventService` 未來可使用 `URLSession`，但 cache、network client、models 與 settings 都必須與本機 usage adapters 分開。每個事件都必須保留可點擊的原始來源 URL 與 publisher；推導出的信心、摘要與去重 metadata 只能補充，不能取代來源。遠端 request 不得含本機用量 snapshot、prompt、repository 資訊或程式開發歷史。
+Provider runtime contract 只允許固定 enum、boolean、經限制的版本字串與 normalized failure category。Codex adapter 可提供 ChatGPT.app 是否存在、經分類的 runtime source、runtime detected、compatibility、app-server connection，以及最後一個 sanitized failure category。SwiftUI 對所有 providers 渲染同一個 `ProviderDiagnosticSnapshot`，不解析 executable URL 或 provider DTO。
 
-## 12. Milestone 1 檔案結構
+Copy Diagnostics 採 **typed allowlist 生成**，不是先 dump object 再 redact。可輸出的 failure categories 只有 `runtimeNotDetected`、`runtimeNotExecutable`、`appServerLaunchFailed`、`appServerConnectionFailed`、`rpcUnavailable`、`usageUnavailable`、`refreshFailed`、`providerDisabled` 與 `notConfigured`。不得輸出 `NSError`、POSIX description、RPC payload、stdout／stderr、完整 executable path、home directory、credential、account identifier、email、prompt、session、source code、project／repository metadata 或 raw provider JSON。
+
+匯出報告固定使用英文，讓 GitHub issue 搜尋、fixture 與跨 locale 維護保持一致；Settings 畫面本身仍使用 English／zh-Hant String Catalog。時間只輸出到 UTC 分鐘，不輸出 exact quota percentage，也不包含 history。ChatGPT.app version 只從已驗證 bundle metadata 按需取得；Codex runtime version 若需額外啟動 process，現階段不取得。
+
+Diagnostics 沒有 timer、observer、filesystem watcher、sampler、telemetry、network request 或 persistence。開啟 Settings／按下 Copy 只建立小型按需 snapshot；它不觸發 quota refresh，也不建立額外 app-server process。Codex locator 仍只回傳 executable URL 給 provider 內部，diagnostics 只接收 `ChatGPT.app`／`Codex.app`／`Standalone Codex` 等安全分類。
+
+## 12. Reset Intelligence domain 與未來 feed 邊界
+
+本機 quota reset detection 已實作；外部官方事件擷取仍是 **FUTURE**。Reset Intelligence 與 provider usage refresh 是獨立的資料路徑，不是 `UsageProvider` 的另一個 method。
+
+```swift
+struct ResetEvent: Identifiable, Codable, Equatable, Sendable {
+    let id: String
+    let providerID: ProviderID
+    let kind: ResetEventKind
+    let publishedAt: Date
+    let effectiveAt: Date?
+    let expiresAt: Date?
+    let audience: ResetEventAudience
+    let sourceName: String
+    let sourceURL: URL
+    let displaySummary: String
+    let displaySummaryLocaleIdentifier: String?
+}
+
+protocol ResetEventSource: Sendable {
+    func fetchEvents() async throws -> [ResetEvent]
+}
+```
+
+`ResetEventKind` 明確區分 `scheduledResetObserved`、`globalResetAnnounced`、`globalResetCompleted` 與 `bankedResetGranted`。每個外部事件必須保留可點擊的原始 `sourceURL` 與 `sourceName`；display-safe summary 是補充資訊，不能被呈現成權威原文。目前不引入 confidence 分數，避免對未實作的 trust pipeline 過度建模。
+
+未來可為 `ResetEventSource` 實作小型 JSON feed client，但 fetch cadence、cache、network client 與 settings 必須與本機 usage adapters 及 refresh scheduler 分開。不得將 social-media credential 放入 App，不得在 App 內爬取 X/Twitter 或呼叫 AI model。遠端 request 不得含本機用量 snapshot、prompt、repository 資訊或程式開發歷史。詳細政策見 [docs/RESET_INTELLIGENCE.md](docs/RESET_INTELLIGENCE.md)。
+
+## 13. Milestone 1 檔案結構
 
 ```text
 QuotaPulse.xcodeproj/
@@ -307,9 +354,13 @@ QuotaPulse/
 │   ├── ProviderID.swift
 │   ├── ProviderStatus.swift
 │   ├── ProviderUsageSnapshot.swift
+│   ├── ResetEvent.swift
 │   ├── ResetCountdown.swift
 │   ├── UsageSource.swift
 │   └── UsageWindow.swift
+├── Diagnostics/
+│   ├── CompatibilityDiagnostics.swift
+│   └── RuntimeDiagnostics.swift
 ├── Providers/
 │   ├── UsageProvider.swift
 │   ├── Mock/
@@ -327,6 +378,7 @@ QuotaPulse/
 │   ├── UsageService.swift
 │   ├── RefreshCoordinator.swift
 │   ├── ResetNotificationPolicy.swift
+│   ├── LocalResetDetector.swift
 │   ├── NotificationService.swift
 │   ├── SettingsStore.swift
 │   └── LaunchAtLoginController.swift
@@ -337,10 +389,12 @@ QuotaPulse/
     │   ├── UsageWindowRow.swift
     │   └── ProviderStateView.swift
     └── Settings/
+        ├── ProviderDiagnosticsView.swift
         ├── SettingsModel.swift
         └── SettingsView.swift
 QuotaPulseTests/
 ├── App/
+├── Diagnostics/
 ├── Domain/
 ├── Providers/
 └── Services/
@@ -348,7 +402,7 @@ QuotaPulseTests/
 
 Codex 與 Claude provider cores 已透過共用應用程式架構接入，且 Codex 已完成本機 live runtime 與 release lifecycle validation。Codex 已將 executable 缺少映射為 `notInstalled`、launch failure 映射為 `runtimeLaunchFailed`、無可用 window 映射為 `usageUnavailable`，其餘 app-server failure 映射為 `refreshFailed`；這些狀態都不含原始 provider payload。因官方尚未定義各 authentication failure 的穩定 error shape，目前不猜測 `unsupportedAuthentication`。Claude snapshot 缺少映射為 `notConfigured`，UI 固定標示為 `Experimental`／`Unverified`，直到完成 bridge 與正式訂閱帳號驗證。Milestone 3 尚須完成明確 opt-in 的 status-line bridge、既有 command 保留／復原與 live fixture validation。不要為了對齊架構圖，預先加入空的未來 service 或 provider。
 
-## 13. 測試與驗證
+## 14. 測試與驗證
 
 Milestone 1 自動測試涵蓋：
 
@@ -368,15 +422,20 @@ Milestone 1 自動測試涵蓋：
 - 多 provider 順序、逐一失敗隔離、兩者同時 unavailable、每次刷新重新 fetch 與 provider/snapshot identity 一致性
 - `AppModel` loading transition，以及全數 unavailable 時不虛構成功更新時間
 - provider presentation 的 available／loading／unavailable／not detected／not configured／refresh failure／cached failure／missing reset／stale／Claude experimental 狀態，以及 user-facing 文案不洩漏內部錯誤
+- 5 小時與 7 天 genuine reset transition、純 percentage 修正、stale/missing/out-of-order snapshot、provider 獨立性、同 cycle 去重與下一 cycle
+- completed-reset 通知在地化、同 process 最多一次，以及以 persisted state 驗證 app restart 不重複送出
+- `ResetEvent` Codable round trip、原始 source URL 保留與事件種類可區分性
 - 最新刷新失敗時保留上一份有效的記憶體內 snapshot 與成功更新時間
+- compatibility diagnostics 的 healthy、runtime missing、disabled、connection failure、usage unavailable、last-refresh failure、provider independence 與 current-state bound
+- Copy Diagnostics allowlist 與刻意含 credential／prompt／session／email／private path／raw JSON 的 privacy regression fixtures
 
 後續 provider 工作還需要測試 app-server request/response correlation、正式 Claude status-line fixtures、bridge atomic write 與 permissions、existing-command composition、settings migration，以及各支援版本與 authentication modes 的 live behavior。
 
-公開 v0.1 的剩餘人工檢查以 `docs/RELEASE_CHECKLIST.md` 為準。Developer ID、Hardened Runtime、notarization 與 Production App Icon 已明確延後；未來聲稱完成正式散布前，仍須在最終 artifact 驗證簽章、Gatekeeper、通知、Launch at Login、child process 與長時間 runtime 行為。
+公開 v0.1 的剩餘人工檢查以 `docs/RELEASE_CHECKLIST.md` 為準。Production App Icon 已完成資產整合與建置驗證；Developer ID、Hardened Runtime 與 notarization 仍明確延後。未來聲稱完成正式散布前，仍須在最終 artifact 驗證簽章、Gatekeeper、通知、Launch at Login、child process 與長時間 runtime 行為。
 
 編譯與 fixture 測試不能證明即時 Codex/Claude 整合、系統通知實際送達、notarization、記憶體目標或外部散布。回報時必須分開列出各種驗證。
 
-## 14. 待決事項與不確定性
+## 15. 待決事項與不確定性
 
 1. 確認是否長期維持 macOS 14 為最低支援版本。
 2. 完成目前延後的 Developer ID／notarized distribution 驗證，以及確認是否有意不啟用 App Sandbox。

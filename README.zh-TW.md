@@ -19,6 +19,7 @@ QuotaPulse 是一款輕量、原生的 macOS 選單列工具，用來監看 AI �
 - 重設時間與分鐘級倒數
 - 透過 macOS 通知提供本機重設提醒
 - 精簡的「設定」，可控制登入時啟動、provider 啟用狀態與提醒門檻
+- 不含私密資訊的相容性診斷，可複製適合貼到 GitHub Issue 的報告
 - 英文與臺灣繁體中文本地化
 - 為輕量長時間執行設計的保守刷新排程
 - 隱私優先的本機處理，且沒有第三方 runtime 相依套件
@@ -79,6 +80,8 @@ QuotaPulse 會尋找相容的 Codex 執行檔，優先使用 ChatGPT.app 內附�
 
 取得新鮮的 provider 資料，且剩餘額度至少為 20% 時，QuotaPulse 會透過 macOS `UserNotifications` 在本機排定重設提醒。短額度視窗可在 1 小時與 30 分鐘前提醒；長視窗則可在門檻未超過視窗長度時，於 24 小時、6 小時與 1 小時前提醒。你可以在「設定」中關閉全部通知或個別門檻。
 
+QuotaPulse 也會在每次刷新後比對有上限的 normalized provider 狀態，判斷 quota window 是否真正進入新 cycle，並在該視窗完成重設時最多通知一次。單純 percentage 下降不計為 reset，persisted cycle identity 也會避免 App restart 後重複通知。官方外部 Reset Intelligence feed 仍是未來階段；詳見 [docs/RESET_INTELLIGENCE.md](docs/RESET_INTELLIGENCE.md)。
+
 ## 隱私
 
 QuotaPulse 在本機處理用量資料，不需要 QuotaPulse 帳號、後端、分析服務或雲端同步。它的設計不會刻意上傳：
@@ -98,6 +101,12 @@ QuotaPulse 優先採用事件驅動更新、保守的刷新週期、有上限的
 
 在開發機約一小時的測試中，QuotaPulse 閒置記憶體維持在約 48 MB；開啟選單或「設定」時曾短暫到約 70 MB，刷新時則短暫增加約 10–20 MB，之後都會往基準值回落。觀察到的閒置 CPU 接近 0%。這些是單一開發環境的觀察結果，不是所有環境的保證；量測條件與限制請參閱 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。
 
+## Provider 相容性疑難排解
+
+如果 provider 用量變成無法取得，請開啟**「設定」→「診斷」**並選擇**「複製診斷資訊」**，再把英文報告貼到 GitHub Issue。報告只包含 allowlist 允許的版本、系統、provider、runtime、連線、刷新與 metadata 可用狀態；不包含憑證、prompt、session、專案資料、私密路徑、原始 provider 回應或實際額度百分比。
+
+請勿附上原始 app-server output、Codex session 檔、驗證檔案或範圍過大的系統 log。
+
 ## 已知限制
 
 - 需要 macOS 14 以上
@@ -105,14 +114,13 @@ QuotaPulse 優先採用事件驅動更新、保守的刷新週期、有上限的
 - ChatGPT.app Codex runtime 探索依賴未文件化的 bundle 路徑
 - Claude Code 支援為 Experimental / Unverified
 - 最初的 v0.1.0 為 source-only release；可下載 binary 的散布驗證尚未完成
-- Production App Icon 仍是發行後續待辦
 - 沒有用量歷史與雲端同步
 - 沒有 iPhone App
-- 尚未實作 Reset Intelligence
+- 尚未實作官方外部 Reset Intelligence feed 擷取
 
 ## 路線圖
 
-v0.1 聚焦可靠的本機額度監看。未來可能進行經審查的 Claude Code opt-in bridge、更廣泛的 provider 與硬體驗證、簽章與 notarization、Production App Icon，以及保留來源連結的 Reset Intelligence；這些都不是目前已實作功能。詳情請參閱 [ROADMAP.md](ROADMAP.md)。
+QuotaPulse 現已包含本機 reset-cycle detection。未來可能進行經審查的 Claude Code opt-in bridge、更廣泛的 provider 與硬體驗證、簽章與 notarization，以及保留來源連結的官方 Reset Intelligence feed 擷取；這些未來項目都不是目前已實作功能。詳情請參閱 [ROADMAP.md](ROADMAP.md)。
 
 ## 參與貢獻
 

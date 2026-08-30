@@ -4,6 +4,15 @@ All notable changes to QuotaPulse will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Provider-independent local quota reset detection with bounded restart-safe deduplication.
+- Localized completed-reset notifications derived from normalized provider and window data.
+- Provider-independent `ResetEvent` and future `ResetEventSource` domain boundaries.
+- Privacy-safe compatibility diagnostics and an allowlisted English report for GitHub issues.
+
 ## [0.1.0] - 2026-08-28
 
 ### Added

@@ -32,3 +32,9 @@ xcodebuild \
 Never include credentials, tokens, prompts, conversations, provider payloads, transcripts, coding history, repository identities, or private filesystem paths in issues, fixtures, logs, or commits. Provider integrations must use bounded inputs, normalize data before it reaches the UI, and preserve the privacy rules in [AGENTS.md](AGENTS.md).
 
 Report vulnerabilities according to [SECURITY.md](SECURITY.md), not through a public issue.
+
+## Provider compatibility issues
+
+For a provider compatibility report, open **QuotaPulse Settings → Diagnostics**, select **Copy Diagnostics**, and paste the generated English report into the issue. The report is generated from a typed allowlist and is intended to replace requests for broad logs.
+
+Do not attach app-server stdout or stderr, authentication files, Codex sessions, provider JSON, home-directory paths, prompts, source code, or repository metadata. If the built-in report is insufficient, describe the visible behavior and reproduction steps without adding private data.
