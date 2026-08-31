@@ -99,8 +99,16 @@ final class SettingsModel {
         enabled: Bool
     ) {
         guard store.isProviderEnabled(providerID) != enabled else { return }
+        notificationService.providerEnablementDidChange(
+            providerID,
+            isEnabled: enabled
+        )
         store.setProvider(providerID, enabled: enabled)
-        appModel.providerPreferencesDidChange()
+        appModel.applyProviderEligibilityChange(providerID, isEnabled: enabled)
+
+        if enabled {
+            appModel.refreshAfterProviderEnablement(providerID)
+        }
     }
 
     func setNotificationsEnabled(_ enabled: Bool) async {

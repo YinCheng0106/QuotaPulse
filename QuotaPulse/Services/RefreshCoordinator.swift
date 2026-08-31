@@ -6,14 +6,14 @@ actor RefreshCoordinator {
         self.usageService = usageService
     }
 
-    func refresh() async -> [ProviderState] {
+    func refresh(eligibleProviderIDs: Set<ProviderID>? = nil) async -> [ProviderState] {
         if let refreshTask {
             return await refreshTask.value
         }
 
         let usageService = usageService
         let task = Task {
-            await usageService.refresh()
+            await usageService.refresh(eligibleProviderIDs: eligibleProviderIDs)
         }
         refreshTask = task
 

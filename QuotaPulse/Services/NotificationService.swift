@@ -3,9 +3,14 @@ import UserNotifications
 
 @MainActor
 protocol NotificationServicing: AnyObject {
+    func prepareForLaunch()
     func evaluate(_ providerStates: [ProviderState], now: Date) async
     func authorizationStatus() async -> NotificationAuthorizationStatus
     func preferencesDidChange() async
+    func providerEnablementDidChange(
+        _ providerID: ProviderID,
+        isEnabled: Bool
+    )
 
     #if DEBUG
     func sendTestNotification() async throws
@@ -14,8 +19,13 @@ protocol NotificationServicing: AnyObject {
 }
 
 extension NotificationServicing {
+    func prepareForLaunch() {}
     func authorizationStatus() async -> NotificationAuthorizationStatus { .notDetermined }
     func preferencesDidChange() async {}
+    func providerEnablementDidChange(
+        _ providerID: ProviderID,
+        isEnabled: Bool
+    ) {}
 
     #if DEBUG
     func updateRuntimeDiagnostics() async {}
@@ -67,6 +77,8 @@ protocol NotificationStateStoring: AnyObject {
     func save(_ state: NotificationDeduplicationState)
     func loadLocalResetDetectionState() -> LocalResetDetectionState
     func saveLocalResetDetectionState(_ state: LocalResetDetectionState)
+    func loadProviderLifecycleGenerations() -> [ProviderID: UInt64]
+    func saveProviderLifecycleGenerations(_ generations: [ProviderID: UInt64])
 }
 
 extension NotificationStateStoring {
@@ -75,10 +87,19 @@ extension NotificationStateStoring {
     }
 
     func saveLocalResetDetectionState(_ state: LocalResetDetectionState) {}
+
+    func loadProviderLifecycleGenerations() -> [ProviderID: UInt64] { [:] }
+
+    func saveProviderLifecycleGenerations(_ generations: [ProviderID: UInt64]) {}
 }
 
 @MainActor
 final class NotificationService: NotificationServicing {
+    private struct ProviderLifecycleState {
+        var generation: UInt64 = 0
+        var isEnabled: Bool
+    }
+
     private let center: any UserNotificationCentering
     private let stateStore: any NotificationStateStoring
     private let policy: ResetNotificationPolicy
@@ -88,7 +109,10 @@ final class NotificationService: NotificationServicing {
     private weak var preferences: (any AppPreferencesProviding)?
     private var evaluationGeneration: UInt64 = 0
     private var authorizationRequestTask: Task<Bool, Never>?
-    private var hasRemovedLegacyPendingRequests = false
+    private var providerLifecycleStates: [ProviderID: ProviderLifecycleState] = [:]
+    private var providerCleanupTasks: [ProviderID: Task<Void, Never>] = [:]
+    private var launchReconciliationTask: Task<Void, Never>?
+    private var hasReconciledPendingRequestsForLaunch = false
 
     init(
         center: any UserNotificationCentering = UserNotificationCenterClient(),
@@ -106,17 +130,52 @@ final class NotificationService: NotificationServicing {
         self.preferences = preferences
         self.currentDate = currentDate
         self.locale = locale
+        let persistedGenerations = stateStore.loadProviderLifecycleGenerations()
+        self.providerLifecycleStates = Dictionary(
+            uniqueKeysWithValues: ProviderID.allCases.map { providerID in
+                (
+                    providerID,
+                    ProviderLifecycleState(
+                        generation: persistedGenerations[providerID] ?? 0,
+                        isEnabled: preferences?.isProviderEnabled(providerID) ?? true
+                    )
+                )
+            }
+        )
+    }
+
+    deinit {
+        authorizationRequestTask?.cancel()
+        providerCleanupTasks.values.forEach { $0.cancel() }
+        launchReconciliationTask?.cancel()
+    }
+
+    func prepareForLaunch() {
+        guard !hasReconciledPendingRequestsForLaunch,
+              launchReconciliationTask == nil
+        else { return }
+
+        let center = center
+        launchReconciliationTask = Task { @MainActor [weak self] in
+            let identifiers = await center.pendingRequestIdentifiers()
+            self?.completeLaunchReconciliation(identifiers: identifiers)
+        }
     }
 
     func evaluate(_ providerStates: [ProviderState], now: Date) async {
-        await removeLegacyPendingRequestsIfNeeded()
+        prepareForLaunch()
+        await launchReconciliationTask?.value
+        evaluationGeneration &+= 1
+        let generation = evaluationGeneration
         let notificationPreferences = preferences?.notificationPreferences ?? .defaults
-        let enabledStates: [ProviderState]
-        if let preferences {
-            enabledStates = providerStates.filter { preferences.isProviderEnabled($0.providerID) }
-        } else {
-            enabledStates = providerStates
+        let enabledStates = providerStates.filter {
+            isProviderCurrentlyEnabled($0.providerID)
         }
+        let providerGenerations = Dictionary(
+            uniqueKeysWithValues: enabledStates.map {
+                ($0.providerID, providerLifecycleGeneration(for: $0.providerID))
+            }
+        )
 
         let localResetEvaluation = localResetDetector.evaluate(
             enabledStates,
@@ -129,8 +188,6 @@ final class NotificationService: NotificationServicing {
         // re-enabling cannot announce a reset that happened earlier.
         guard notificationPreferences.isEnabled else { return }
 
-        evaluationGeneration &+= 1
-        let generation = evaluationGeneration
         let evaluationStartedAt = currentDate()
         let evaluation = policy.evaluate(
             enabledStates,
@@ -151,8 +208,14 @@ final class NotificationService: NotificationServicing {
         // policy so a newer evaluation, a passed reset, or newly stale usage cannot send.
         let elapsed = max(currentDate().timeIntervalSince(evaluationStartedAt), 0)
         let deliveryNow = now.addingTimeInterval(elapsed)
+        let validDeliveryStates = enabledStates.filter {
+            isCurrentLifecycle(
+                for: $0.providerID,
+                generation: providerGenerations[$0.providerID]
+            )
+        }
         let deliveryEvaluation = policy.evaluate(
-            enabledStates,
+            validDeliveryStates,
             state: stateStore.load(),
             now: deliveryNow,
             enabledThresholdMinutes: notificationPreferences.enabledThresholdMinutes,
@@ -165,11 +228,28 @@ final class NotificationService: NotificationServicing {
             now: deliveryNow
         ) {
             guard generation == evaluationGeneration, !Task.isCancelled else { return }
-            try? await center.add(localResetRequest(for: reset))
+            guard isCurrentLifecycle(
+                for: reset.identity.providerID,
+                generation: providerGenerations[reset.identity.providerID]
+            ) else { continue }
+            let request = localResetRequest(
+                for: reset,
+                lifecycleGeneration: providerGenerations[reset.identity.providerID]
+            )
+            try? await center.add(request)
+            removeIfStale(
+                request,
+                providerID: reset.identity.providerID,
+                generation: providerGenerations[reset.identity.providerID]
+            )
         }
 
         for decision in deliveryEvaluation.decisions {
             guard generation == evaluationGeneration, !Task.isCancelled else { return }
+            guard isCurrentLifecycle(
+                for: decision.providerID,
+                generation: providerGenerations[decision.providerID]
+            ) else { continue }
 
             var latestState = stateStore.load()
             // Claim before adding so an App restart cannot resend the same threshold.
@@ -178,12 +258,21 @@ final class NotificationService: NotificationServicing {
             stateStore.save(latestState)
 
             let request = LocalNotificationRequest(
-                identifier: decision.identifier,
+                identifier: lifecycleScopedIdentifier(
+                    decision.identifier,
+                    providerID: decision.providerID,
+                    generation: providerGenerations[decision.providerID]
+                ),
                 title: decision.title,
                 body: decision.body,
                 delay: 1
             )
             try? await center.add(request)
+            removeIfStale(
+                request,
+                providerID: decision.providerID,
+                generation: providerGenerations[decision.providerID]
+            )
         }
     }
 
@@ -218,6 +307,34 @@ final class NotificationService: NotificationServicing {
         }
     }
 
+    func providerEnablementDidChange(
+        _ providerID: ProviderID,
+        isEnabled: Bool
+    ) {
+        var lifecycle = providerLifecycleStates[providerID]
+            ?? ProviderLifecycleState(isEnabled: isEnabled)
+        lifecycle.generation &+= 1
+        lifecycle.isEnabled = isEnabled
+        providerLifecycleStates[providerID] = lifecycle
+        stateStore.saveProviderLifecycleGenerations(
+            providerLifecycleStates.mapValues(\.generation)
+        )
+
+        // Enablement transitions always start this provider from a fresh detector baseline.
+        // Reminder deduplication is retained so toggling a provider cannot duplicate an
+        // already-delivered approaching-reset notification.
+        var resetState = stateStore.loadLocalResetDetectionState()
+        resetState.entries.removeAll { $0.providerID == providerID }
+        stateStore.saveLocalResetDetectionState(resetState)
+
+        guard !isEnabled, providerCleanupTasks[providerID] == nil else { return }
+        let center = center
+        providerCleanupTasks[providerID] = Task { @MainActor [weak self] in
+            let identifiers = await center.pendingRequestIdentifiers()
+            self?.completeProviderCleanup(providerID, identifiers: identifiers)
+        }
+    }
+
     #if DEBUG
     func sendTestNotification() async throws {
         guard try await isAuthorized(requestIfNeeded: true) else {
@@ -242,6 +359,14 @@ final class NotificationService: NotificationServicing {
             pendingCount: pendingCount,
             deduplicationEntryCount: stateStore.load().entries.count
         )
+    }
+
+    func waitForProviderCleanupForTesting(_ providerID: ProviderID) async {
+        await providerCleanupTasks[providerID]?.value
+    }
+
+    var providerCleanupTaskCountForTesting: Int {
+        providerCleanupTasks.count
     }
     #endif
 
@@ -268,14 +393,20 @@ final class NotificationService: NotificationServicing {
         }
     }
 
-    private func removeLegacyPendingRequestsIfNeeded() async {
-        guard !hasRemovedLegacyPendingRequests else { return }
-        hasRemovedLegacyPendingRequests = true
-        let identifiers = await center.pendingRequestIdentifiers().filter(
-            isLegacyResetIdentifier
-        )
-        guard !identifiers.isEmpty else { return }
-        center.removePendingRequests(withIdentifiers: identifiers)
+    private func completeLaunchReconciliation(identifiers: [String]) {
+        launchReconciliationTask = nil
+        hasReconciledPendingRequestsForLaunch = true
+
+        let identifiersToRemove = identifiers.filter { identifier in
+            guard let providerID = quotaResetProviderID(from: identifier) else {
+                return false
+            }
+            guard isProviderCurrentlyEnabled(providerID) else { return true }
+            return !isIdentifierFromCurrentLifecycle(identifier, providerID: providerID)
+        }
+        if !identifiersToRemove.isEmpty {
+            center.removePendingRequests(withIdentifiers: identifiersToRemove)
+        }
     }
 
     private func isLegacyResetIdentifier(_ identifier: String) -> Bool {
@@ -289,14 +420,110 @@ final class NotificationService: NotificationServicing {
             || identifier.hasPrefix("quotapulse.reset-completed.")
     }
 
-    private func localResetRequest(for reset: DetectedQuotaReset) -> LocalNotificationRequest {
-        LocalNotificationRequest(
-            identifier: [
-                "quotapulse.reset-completed",
-                reset.identity.providerID.rawValue,
-                encodedIdentifierComponent(reset.identity.windowID),
-                encodedIdentifierComponent(reset.identity.cycleIdentifier),
-            ].joined(separator: "."),
+    private func isQuotaResetIdentifier(
+        _ identifier: String,
+        for providerID: ProviderID
+    ) -> Bool {
+        identifier.hasPrefix("quotapulse.reset.\(providerID.rawValue).")
+            || identifier.hasPrefix("quotapulse.reset-completed.\(providerID.rawValue).")
+    }
+
+    private func quotaResetProviderID(from identifier: String) -> ProviderID? {
+        ProviderID.allCases.first { providerID in
+            isQuotaResetIdentifier(identifier, for: providerID)
+        }
+    }
+
+    private func providerLifecycleGeneration(for providerID: ProviderID) -> UInt64 {
+        providerLifecycleStates[providerID]?.generation ?? 0
+    }
+
+    private func isProviderCurrentlyEnabled(_ providerID: ProviderID) -> Bool {
+        providerLifecycleStates[providerID]?.isEnabled
+            ?? preferences?.isProviderEnabled(providerID)
+            ?? true
+    }
+
+    private func isCurrentLifecycle(
+        for providerID: ProviderID,
+        generation: UInt64?
+    ) -> Bool {
+        guard let generation else { return false }
+        return isProviderCurrentlyEnabled(providerID)
+            && providerLifecycleGeneration(for: providerID) == generation
+    }
+
+    private func completeProviderCleanup(
+        _ providerID: ProviderID,
+        identifiers: [String]
+    ) {
+        providerCleanupTasks[providerID] = nil
+
+        let identifiersToRemove = identifiers.filter {
+            guard isQuotaResetIdentifier($0, for: providerID) else { return false }
+            guard isProviderCurrentlyEnabled(providerID) else { return true }
+            return !isIdentifierFromCurrentLifecycle($0, providerID: providerID)
+        }
+        if !identifiersToRemove.isEmpty {
+            center.removePendingRequests(withIdentifiers: identifiersToRemove)
+        }
+    }
+
+    private func removeIfStale(
+        _ request: LocalNotificationRequest,
+        providerID: ProviderID,
+        generation: UInt64?
+    ) {
+        guard !isCurrentLifecycle(for: providerID, generation: generation) else { return }
+        center.removePendingRequests(withIdentifiers: [request.identifier])
+    }
+
+    private func isIdentifierFromCurrentLifecycle(
+        _ identifier: String,
+        providerID: ProviderID
+    ) -> Bool {
+        let generation = providerLifecycleGeneration(for: providerID)
+        return identifier.hasPrefix(
+            "quotapulse.reset.\(providerID.rawValue).lifecycle-\(generation)."
+        ) || identifier.hasPrefix(
+            "quotapulse.reset-completed.\(providerID.rawValue).lifecycle-\(generation)."
+        )
+    }
+
+    private func lifecycleScopedIdentifier(
+        _ identifier: String,
+        providerID: ProviderID,
+        generation: UInt64?
+    ) -> String {
+        guard let generation else { return identifier }
+        let prefixes = [
+            "quotapulse.reset.\(providerID.rawValue).",
+            "quotapulse.reset-completed.\(providerID.rawValue).",
+        ]
+        guard let prefix = prefixes.first(where: { identifier.hasPrefix($0) }) else {
+            return identifier
+        }
+        return prefix
+            + "lifecycle-\(generation)."
+            + identifier.dropFirst(prefix.count)
+    }
+
+    private func localResetRequest(
+        for reset: DetectedQuotaReset,
+        lifecycleGeneration: UInt64?
+    ) -> LocalNotificationRequest {
+        let identifier = [
+            "quotapulse.reset-completed",
+            reset.identity.providerID.rawValue,
+            encodedIdentifierComponent(reset.identity.windowID),
+            encodedIdentifierComponent(reset.identity.cycleIdentifier),
+        ].joined(separator: ".")
+        return LocalNotificationRequest(
+            identifier: lifecycleScopedIdentifier(
+                identifier,
+                providerID: reset.identity.providerID,
+                generation: lifecycleGeneration
+            ),
             title: AppLocalization.resetCompletedTitle(
                 providerName: reset.identity.providerID.displayName,
                 locale: locale
@@ -412,6 +639,7 @@ final class UserDefaultsNotificationStateStore: NotificationStateStoring {
     private let defaults: UserDefaults
     private let key: String
     private let localResetKey: String
+    private let providerLifecycleKey: String
     private let encoder = JSONEncoder()
     private let decoder = JSONDecoder()
 
@@ -419,6 +647,7 @@ final class UserDefaultsNotificationStateStore: NotificationStateStoring {
         self.defaults = defaults
         self.key = key
         self.localResetKey = "\(key).local-reset.v1"
+        self.providerLifecycleKey = "\(key).provider-lifecycle.v1"
         encoder.outputFormatting = [.sortedKeys]
     }
 
@@ -480,5 +709,28 @@ final class UserDefaultsNotificationStateStore: NotificationStateStoring {
             }
             boundedState.entries.removeLast()
         }
+    }
+
+    func loadProviderLifecycleGenerations() -> [ProviderID: UInt64] {
+        guard let stored = defaults.dictionary(forKey: providerLifecycleKey) else {
+            return [:]
+        }
+        return Dictionary(
+            uniqueKeysWithValues: ProviderID.allCases.compactMap { providerID in
+                guard let generation = stored[providerID.rawValue] as? NSNumber else {
+                    return nil
+                }
+                return (providerID, generation.uint64Value)
+            }
+        )
+    }
+
+    func saveProviderLifecycleGenerations(_ generations: [ProviderID: UInt64]) {
+        let bounded = Dictionary(
+            uniqueKeysWithValues: ProviderID.allCases.compactMap { providerID in
+                generations[providerID].map { (providerID.rawValue, NSNumber(value: $0)) }
+            }
+        )
+        defaults.set(bounded, forKey: providerLifecycleKey)
     }
 }

@@ -5,9 +5,24 @@ import Observation
 @Observable
 @MainActor
 final class AppModel {
+    private struct RefreshCompletion {
+        let notificationStates: [ProviderState]
+        let nextRefreshDeadline: Date?
+    }
+
     private(set) var providerStates: [ProviderState]
     private(set) var isRefreshing = false
     private(set) var lastUpdatedAt: Date?
+
+    var activeProviderStates: [ProviderState] {
+        providerStates.filter {
+            enabledProviderIDs.contains($0.providerID) && $0.status != .disabled
+        }
+    }
+
+    var hasEnabledProviders: Bool {
+        !enabledProviderIDs.isEmpty
+    }
 
     #if DEBUG
     private(set) var notificationFeedback: String?
@@ -24,9 +39,12 @@ final class AppModel {
     @ObservationIgnored private var refreshTask: Task<Void, Never>?
     @ObservationIgnored private var scheduledRefreshTask: Task<Void, Never>?
     @ObservationIgnored private var coordinatorCancellationTask: Task<Void, Never>?
-    @ObservationIgnored private var refreshAfterCurrentCompletes = false
+    @ObservationIgnored private var providerIDsAwaitingRefresh: Set<ProviderID> = []
     @ObservationIgnored private var lastRefreshAttemptAt: Date?
 
+    private let providerIDs: [ProviderID]
+    private var enabledProviderIDs: Set<ProviderID>
+    private var providerLifecycleGenerations: [ProviderID: UInt64]
     private var didStart = false
     private var isSleeping = false
     private var isTerminating = false
@@ -38,6 +56,7 @@ final class AppModel {
 
     init(
         providerIDs: [ProviderID],
+        enabledProviderIDs: Set<ProviderID>? = nil,
         refreshCoordinator: RefreshCoordinator,
         notificationService: any NotificationServicing,
         refreshPolicy: RefreshPolicy = .v01,
@@ -48,7 +67,19 @@ final class AppModel {
         workspaceNotificationCenter: NotificationCenter = NSWorkspace.shared.notificationCenter,
         observesLifecycle: Bool = true
     ) {
-        self.providerStates = providerIDs.map { ProviderState.loading($0) }
+        let initialEnabledProviderIDs = (enabledProviderIDs ?? Set(providerIDs))
+            .intersection(Set(providerIDs))
+        self.providerIDs = providerIDs
+        self.enabledProviderIDs = initialEnabledProviderIDs
+        self.providerLifecycleGenerations = Dictionary(
+            uniqueKeysWithValues: providerIDs.map { ($0, 0) }
+        )
+        self.providerStates = providerIDs.map { providerID in
+            if initialEnabledProviderIDs.contains(providerID) {
+                return ProviderState.loading(providerID)
+            }
+            return ProviderState(providerID: providerID, status: .disabled, snapshot: nil)
+        }
         self.refreshCoordinator = refreshCoordinator
         self.notificationService = notificationService
         self.refreshPolicy = refreshPolicy
@@ -91,7 +122,7 @@ final class AppModel {
            currentDate.timeIntervalSince(lastRefreshCompletedAt) < refreshPolicy.menuStaleThreshold {
             return
         }
-        let hasStaleSnapshot = providerStates.contains { state in
+        let hasStaleSnapshot = activeProviderStates.contains { state in
             guard let capturedAt = state.snapshot?.capturedAt else { return false }
             return currentDate.timeIntervalSince(capturedAt) >= refreshPolicy.menuStaleThreshold
         }
@@ -109,10 +140,36 @@ final class AppModel {
         requestRefresh()
     }
 
-    func providerPreferencesDidChange() {
-        guard !isTerminating else { return }
+    func applyProviderEligibilityChange(_ providerID: ProviderID, isEnabled: Bool) {
+        guard providerIDs.contains(providerID), !isTerminating else { return }
+        guard enabledProviderIDs.contains(providerID) != isEnabled else { return }
+
+        providerLifecycleGenerations[providerID, default: 0] &+= 1
+
+        if isEnabled {
+            enabledProviderIDs.insert(providerID)
+        } else {
+            enabledProviderIDs.remove(providerID)
+            providerIDsAwaitingRefresh.remove(providerID)
+        }
+
+        if let index = providerStates.firstIndex(where: { $0.providerID == providerID }) {
+            let snapshot = providerStates[index].snapshot
+            providerStates[index] = isEnabled
+                ? .loading(providerID)
+                : ProviderState(providerID: providerID, status: .disabled, snapshot: snapshot)
+        }
+        updateLastUpdatedAt()
+
+        if !isEnabled, enabledProviderIDs.isEmpty {
+            cancelScheduledRefresh(clearDeadline: true)
+        }
+    }
+
+    func refreshAfterProviderEnablement(_ providerID: ProviderID) {
+        guard enabledProviderIDs.contains(providerID), !isTerminating else { return }
         if refreshTask != nil {
-            refreshAfterCurrentCompletes = true
+            providerIDsAwaitingRefresh.insert(providerID)
         } else {
             refreshManually()
         }
@@ -166,7 +223,11 @@ final class AppModel {
     }
 
     private func requestRefresh() {
-        guard refreshTask == nil, !isSleeping, !isTerminating else { return }
+        guard refreshTask == nil,
+              !enabledProviderIDs.isEmpty,
+              !isSleeping,
+              !isTerminating
+        else { return }
 
         cancelScheduledRefresh(clearDeadline: true)
         isRefreshing = true
@@ -178,8 +239,15 @@ final class AppModel {
         }
         #endif
 
-        let loadingStates = providerStates.map {
-            ProviderState.loading($0.providerID, snapshot: $0.snapshot)
+        let loadingStates = providerStates.map { state in
+            guard enabledProviderIDs.contains(state.providerID) else {
+                return ProviderState(
+                    providerID: state.providerID,
+                    status: .disabled,
+                    snapshot: state.snapshot
+                )
+            }
+            return ProviderState.loading(state.providerID, snapshot: state.snapshot)
         }
         if providerStates != loadingStates {
             providerStates = loadingStates
@@ -187,25 +255,40 @@ final class AppModel {
 
         refreshGeneration &+= 1
         let generation = refreshGeneration
+        let eligibleProviderIDs = enabledProviderIDs
+        let lifecycleGenerations = providerLifecycleGenerations
         let refreshCoordinator = refreshCoordinator
         refreshTask = Task { [weak self] in
-            let states = await refreshCoordinator.refresh()
+            let states = await refreshCoordinator.refresh(
+                eligibleProviderIDs: eligibleProviderIDs
+            )
             guard let self else { return }
-            guard self.finishRefresh(states, generation: generation) else { return }
+            guard let completion = self.finishRefresh(
+                states,
+                generation: generation,
+                eligibleProviderIDs: eligibleProviderIDs,
+                lifecycleGenerations: lifecycleGenerations
+            ) else { return }
             let evaluationDate = self.now()
-            await self.notificationService.evaluate(states, now: evaluationDate)
-            if self.refreshAfterCurrentCompletes {
-                self.refreshAfterCurrentCompletes = false
-                self.refreshManually()
-            }
+            await self.notificationService.evaluate(
+                completion.notificationStates,
+                now: evaluationDate
+            )
+            self.completeRefreshCycle(
+                generation: generation,
+                nextRefreshDeadline: completion.nextRefreshDeadline
+            )
         }
     }
 
-    private func finishRefresh(_ states: [ProviderState], generation: UInt64) -> Bool {
-        guard generation == refreshGeneration else { return false }
+    private func finishRefresh(
+        _ states: [ProviderState],
+        generation: UInt64,
+        eligibleProviderIDs: Set<ProviderID>,
+        lifecycleGenerations: [ProviderID: UInt64]
+    ) -> RefreshCompletion? {
+        guard generation == refreshGeneration else { return nil }
 
-        refreshTask = nil
-        isRefreshing = false
         let completedAt = now()
         lastRefreshCompletedAt = completedAt
         let cachedSnapshots = Dictionary(
@@ -213,7 +296,26 @@ final class AppModel {
                 state.snapshot.map { (state.providerID, $0) }
             }
         )
-        let displayStates = states.map { state in
+        var notificationStates: [ProviderState] = []
+        let eligibleStates = states.map { state in
+            guard enabledProviderIDs.contains(state.providerID) else {
+                return ProviderState(
+                    providerID: state.providerID,
+                    status: .disabled,
+                    snapshot: cachedSnapshots[state.providerID]
+                )
+            }
+
+            guard eligibleProviderIDs.contains(state.providerID),
+                  lifecycleGenerations[state.providerID]
+                    == providerLifecycleGenerations[state.providerID]
+            else {
+                return ProviderState.loading(state.providerID)
+            }
+            notificationStates.append(state)
+            return state
+        }
+        let displayStates = eligibleStates.map { state in
             guard state.snapshot == nil,
                   let cachedSnapshot = cachedSnapshots[state.providerID]
             else {
@@ -236,9 +338,9 @@ final class AppModel {
         if providerStates != displayStates {
             providerStates = displayStates
         }
-        lastUpdatedAt = displayStates.compactMap(\.lastUpdatedAt).max()
+        updateLastUpdatedAt()
 
-        if refreshPolicy.hasRetryableFailure(in: states) {
+        if refreshPolicy.hasRetryableFailure(in: eligibleStates) {
             consecutiveFailureCount += 1
         } else {
             consecutiveFailureCount = 0
@@ -247,17 +349,53 @@ final class AppModel {
         let delay = refreshPolicy.nextRefreshDelay(
             consecutiveFailureCount: consecutiveFailureCount
         )
-        scheduleRefresh(after: delay)
+        let nextRefreshDeadline: Date?
+        if enabledProviderIDs.isEmpty {
+            cancelScheduledRefresh(clearDeadline: true)
+            nextRefreshDeadline = nil
+        } else {
+            nextRefreshDeadline = completedAt.addingTimeInterval(max(delay, 0))
+        }
         #if DEBUG
         RuntimeDiagnostics.shared.refreshFinished(states: states, at: completedAt)
         if RuntimeDiagnostics.shouldLogAutomaticSnapshots {
             RuntimeDiagnostics.shared.logSnapshot(reason: "refresh_completed")
         }
         #endif
-        return true
+        return RefreshCompletion(
+            notificationStates: notificationStates,
+            nextRefreshDeadline: nextRefreshDeadline
+        )
+    }
+
+    private func completeRefreshCycle(
+        generation: UInt64,
+        nextRefreshDeadline: Date?
+    ) {
+        guard generation == refreshGeneration else { return }
+        refreshTask = nil
+        isRefreshing = false
+        guard !isTerminating else { return }
+
+        let shouldRefreshAfterCompletion = !providerIDsAwaitingRefresh
+            .isDisjoint(with: enabledProviderIDs)
+        providerIDsAwaitingRefresh.removeAll()
+        if shouldRefreshAfterCompletion {
+            refreshManually()
+        } else if let nextRefreshDeadline {
+            scheduleRefresh(
+                after: max(nextRefreshDeadline.timeIntervalSince(now()), 0)
+            )
+        } else {
+            cancelScheduledRefresh(clearDeadline: true)
+        }
     }
 
     private func scheduleRefresh(after delay: TimeInterval) {
+        guard !enabledProviderIDs.isEmpty else {
+            cancelScheduledRefresh(clearDeadline: true)
+            return
+        }
         let deadline = now().addingTimeInterval(max(delay, 0))
         nextRefreshAt = deadline
 
@@ -321,6 +459,10 @@ final class AppModel {
         if clearDeadline {
             nextRefreshAt = nil
         }
+    }
+
+    private func updateLastUpdatedAt() {
+        lastUpdatedAt = activeProviderStates.compactMap(\.lastUpdatedAt).max()
     }
 
     private func terminate() {

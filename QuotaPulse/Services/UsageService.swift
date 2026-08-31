@@ -16,7 +16,7 @@ actor UsageService {
         }
     }
 
-    func refresh() async -> [ProviderState] {
+    func refresh(eligibleProviderIDs: Set<ProviderID>? = nil) async -> [ProviderState] {
         var states: [ProviderState] = []
         states.reserveCapacity(providers.count)
 
@@ -25,7 +25,9 @@ actor UsageService {
                 break
             }
 
-            if await !isProviderEnabled(provider.id) {
+            let wasEligibleWhenRefreshStarted = eligibleProviderIDs?.contains(provider.id) ?? true
+            let isStillEnabled = await isProviderEnabled(provider.id)
+            if !wasEligibleWhenRefreshStarted || !isStillEnabled {
                 states.append(
                     ProviderState(
                         providerID: provider.id,

@@ -195,6 +195,156 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertTrue(relaunchedCenter.requests.isEmpty)
     }
 
+    func testRestartPreservesCurrentPendingRequestWithoutSchedulingDuplicate() async throws {
+        let suiteName = "dev.quotapulse.tests.notifications.pending-restart.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let center = TestUserNotificationCenter()
+        center.tracksRequestsAsPending = true
+        let key = "pending-restart"
+        let states = [makeState(resetAfter: 6 * 3_600)]
+
+        do {
+            let service = NotificationService(
+                center: center,
+                stateStore: UserDefaultsNotificationStateStore(defaults: defaults, key: key)
+            )
+            await service.evaluate(states, now: now)
+        }
+        let pendingIdentifier = try XCTUnwrap(center.pendingIdentifiers.first)
+        XCTAssertTrue(pendingIdentifier.contains(".lifecycle-0."))
+
+        let relaunchedService = NotificationService(
+            center: center,
+            stateStore: UserDefaultsNotificationStateStore(defaults: defaults, key: key)
+        )
+        await relaunchedService.evaluate(states, now: now.addingTimeInterval(60))
+
+        XCTAssertEqual(center.requests.count, 1)
+        XCTAssertEqual(center.pendingIdentifiers, [pendingIdentifier])
+        XCTAssertTrue(center.removedIdentifiers.isEmpty)
+    }
+
+    func testDisablingProviderAfterRestartRemovesPreviousProcessPendingRequest() async {
+        let suiteName = "dev.quotapulse.tests.notifications.disable-after-restart.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let center = TestUserNotificationCenter()
+        center.tracksRequestsAsPending = true
+        let key = "disable-after-restart"
+
+        do {
+            let service = NotificationService(
+                center: center,
+                stateStore: UserDefaultsNotificationStateStore(defaults: defaults, key: key)
+            )
+            await service.evaluate([makeState(resetAfter: 6 * 3_600)], now: now)
+        }
+        XCTAssertEqual(center.pendingIdentifiers.count, 1)
+
+        let relaunchedService = NotificationService(
+            center: center,
+            stateStore: UserDefaultsNotificationStateStore(defaults: defaults, key: key)
+        )
+        relaunchedService.providerEnablementDidChange(.codex, isEnabled: false)
+        await relaunchedService.waitForProviderCleanupForTesting(.codex)
+
+        XCTAssertTrue(center.pendingIdentifiers.isEmpty)
+    }
+
+    func testLaunchPreparationRemovesPendingRequestForProviderDisabledBeforeRestart() async {
+        let suiteName = "dev.quotapulse.tests.notifications.disabled-launch.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        preferences.setProvider(.codex, enabled: false)
+        let center = TestUserNotificationCenter()
+        center.tracksRequestsAsPending = true
+        let codexIdentifier = "quotapulse.reset.codex.lifecycle-0.primary.123.long.360m"
+        let claudeIdentifier = "quotapulse.reset.claude.lifecycle-0.primary.123.long.360m"
+        center.pendingIdentifiers = [codexIdentifier, claudeIdentifier]
+        let service = NotificationService(
+            center: center,
+            stateStore: UserDefaultsNotificationStateStore(
+                defaults: defaults,
+                key: "disabled-launch"
+            ),
+            preferences: preferences
+        )
+
+        service.prepareForLaunch()
+        await center.waitForRemovalCount(1)
+
+        XCTAssertEqual(center.pendingIdentifiers, [claudeIdentifier])
+        XCTAssertEqual(center.removedIdentifiers, [[codexIdentifier]])
+    }
+
+    func testRestartUsesPersistedLifecycleGenerationToRemoveStalePendingRequest() async {
+        let suiteName = "dev.quotapulse.tests.notifications.lifecycle-restart.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        let center = TestUserNotificationCenter()
+        center.tracksRequestsAsPending = true
+        let key = "lifecycle-restart"
+
+        do {
+            let service = NotificationService(
+                center: center,
+                stateStore: UserDefaultsNotificationStateStore(defaults: defaults, key: key),
+                preferences: preferences
+            )
+            service.providerEnablementDidChange(.codex, isEnabled: false)
+            await service.waitForProviderCleanupForTesting(.codex)
+            service.providerEnablementDidChange(.codex, isEnabled: true)
+        }
+
+        let staleIdentifier = "quotapulse.reset.codex.lifecycle-0.primary.123.long.360m"
+        let currentIdentifier = "quotapulse.reset.codex.lifecycle-2.primary.456.long.360m"
+        center.pendingIdentifiers = [staleIdentifier, currentIdentifier]
+
+        let relaunchedService = NotificationService(
+            center: center,
+            stateStore: UserDefaultsNotificationStateStore(defaults: defaults, key: key),
+            preferences: preferences
+        )
+        await relaunchedService.evaluate([], now: now)
+
+        XCTAssertEqual(center.pendingIdentifiers, [currentIdentifier])
+        XCTAssertEqual(center.removedIdentifiers.last, [staleIdentifier])
+    }
+
+    func testRestartLifecycleReconciliationRemainsProviderScoped() async {
+        let sharedState = SharedNotificationState()
+        let center = TestUserNotificationCenter()
+        center.tracksRequestsAsPending = true
+
+        do {
+            let service = NotificationService(
+                center: center,
+                stateStore: TestNotificationStateStore(sharedState: sharedState)
+            )
+            service.providerEnablementDidChange(.codex, isEnabled: false)
+            await service.waitForProviderCleanupForTesting(.codex)
+            service.providerEnablementDidChange(.codex, isEnabled: true)
+        }
+
+        let staleCodexIdentifier =
+            "quotapulse.reset.codex.lifecycle-0.primary.123.long.360m"
+        let currentClaudeIdentifier =
+            "quotapulse.reset.claude.lifecycle-0.primary.123.long.360m"
+        center.pendingIdentifiers = [staleCodexIdentifier, currentClaudeIdentifier]
+
+        let relaunchedService = NotificationService(
+            center: center,
+            stateStore: TestNotificationStateStore(sharedState: sharedState)
+        )
+        await relaunchedService.evaluate([], now: now)
+
+        XCTAssertEqual(center.pendingIdentifiers, [currentClaudeIdentifier])
+        XCTAssertEqual(center.removedIdentifiers.last, [staleCodexIdentifier])
+    }
+
     func testGenuineLocalResetEmitsOneLocalizedCompletedNotification() async throws {
         let (preferences, defaults, suiteName) = makePreferencesWithRemindersDisabled()
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -516,6 +666,230 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(center.authorizationRequestCount, 0)
     }
 
+    func testDisabledProviderSchedulesNoNotificationWhileAnotherProviderStillDoes() async {
+        let suiteName = "dev.quotapulse.tests.notifications.provider-disabled.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        preferences.setProvider(.codex, enabled: false)
+        let center = TestUserNotificationCenter()
+        let service = NotificationService(
+            center: center,
+            stateStore: TestNotificationStateStore(),
+            preferences: preferences,
+            locale: Locale(identifier: "en")
+        )
+
+        await service.evaluate(
+            [
+                makeState(providerID: .codex, resetAfter: 6 * 3_600),
+                makeState(providerID: .claude, resetAfter: 6 * 3_600),
+            ],
+            now: now
+        )
+
+        XCTAssertEqual(center.requests.count, 1)
+        XCTAssertEqual(center.requests.first?.title, "Claude Code resets in 6 hours")
+    }
+
+    func testDisablingProviderCancelsOnlyThatProvidersPendingQuotaPulseRequests() async {
+        let center = TestUserNotificationCenter()
+        center.pendingIdentifiers = [
+            "quotapulse.reset.codex.primary.123.long.360m",
+            "quotapulse.reset-completed.codex.primary.123",
+            "quotapulse.reset.claude.primary.123.long.360m",
+            "quotapulse.reset-completed.claude.primary.123",
+            "another-app.request",
+        ]
+        let service = NotificationService(
+            center: center,
+            stateStore: TestNotificationStateStore()
+        )
+
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+        await center.waitForRemovalCount(1)
+
+        XCTAssertEqual(
+            center.removedIdentifiers,
+            [[
+                "quotapulse.reset.codex.primary.123.long.360m",
+                "quotapulse.reset-completed.codex.primary.123",
+            ]]
+        )
+    }
+
+    func testDisableThenImmediateEnableInvalidatesStaleCleanup() async {
+        let suiteName = "dev.quotapulse.tests.notifications.cleanup-race.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        let center = TestUserNotificationCenter()
+        center.tracksRequestsAsPending = true
+        let service = NotificationService(
+            center: center,
+            stateStore: TestNotificationStateStore(),
+            preferences: preferences,
+            locale: Locale(identifier: "en")
+        )
+        await service.evaluate([], now: now)
+        center.blocksPendingRequestLookups = true
+
+        preferences.setProvider(.codex, enabled: false)
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+        await center.waitForPendingLookupCount(2)
+        preferences.setProvider(.codex, enabled: true)
+        service.providerEnablementDidChange(.codex, isEnabled: true)
+        await service.evaluate([makeState(resetAfter: 6 * 3_600)], now: now)
+        let currentIdentifier = try? XCTUnwrap(center.requests.last?.identifier)
+
+        center.resumePendingRequestLookups()
+        await service.waitForProviderCleanupForTesting(.codex)
+
+        XCTAssertNotNil(currentIdentifier)
+        XCTAssertEqual(center.pendingIdentifiers, [currentIdentifier].compactMap { $0 })
+        XCTAssertFalse(center.removedIdentifiers.joined().contains(currentIdentifier ?? ""))
+    }
+
+    func testDisableEnableDisableConvergesToDisabledAndRemovesEnabledGeneration() async {
+        let center = TestUserNotificationCenter()
+        center.tracksRequestsAsPending = true
+        center.blocksPendingRequestLookups = true
+        let service = NotificationService(
+            center: center,
+            stateStore: TestNotificationStateStore(),
+            locale: Locale(identifier: "en")
+        )
+
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+        await center.waitForPendingLookupCount(1)
+        service.providerEnablementDidChange(.codex, isEnabled: true)
+        center.pendingIdentifiers = [
+            "quotapulse.reset.codex.lifecycle-2.primary.123.long.360m",
+        ]
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+
+        center.resumePendingRequestLookups()
+        await service.waitForProviderCleanupForTesting(.codex)
+
+        XCTAssertTrue(center.pendingIdentifiers.isEmpty)
+        XCTAssertEqual(
+            center.removedIdentifiers,
+            [["quotapulse.reset.codex.lifecycle-2.primary.123.long.360m"]]
+        )
+    }
+
+    func testDisableEnableDisableEnablePreservesOnlyCurrentGeneration() async {
+        let center = TestUserNotificationCenter()
+        center.tracksRequestsAsPending = true
+        center.blocksPendingRequestLookups = true
+        let service = NotificationService(
+            center: center,
+            stateStore: TestNotificationStateStore(),
+            locale: Locale(identifier: "en")
+        )
+
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+        await center.waitForPendingLookupCount(1)
+        service.providerEnablementDidChange(.codex, isEnabled: true)
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+        service.providerEnablementDidChange(.codex, isEnabled: true)
+        let staleIdentifier = "quotapulse.reset.codex.lifecycle-2.primary.123.long.360m"
+        let currentIdentifier = "quotapulse.reset.codex.lifecycle-4.primary.456.long.360m"
+        center.pendingIdentifiers = [staleIdentifier, currentIdentifier]
+
+        center.resumePendingRequestLookups()
+        await service.waitForProviderCleanupForTesting(.codex)
+
+        XCTAssertEqual(center.pendingIdentifiers, [currentIdentifier])
+        XCTAssertEqual(center.removedIdentifiers, [[staleIdentifier]])
+    }
+
+    func testRapidProviderTransitionsCoalesceToOneCleanupLookup() async {
+        let center = TestUserNotificationCenter()
+        center.blocksPendingRequestLookups = true
+        let service = NotificationService(
+            center: center,
+            stateStore: TestNotificationStateStore()
+        )
+
+        for index in 0..<100 {
+            service.providerEnablementDidChange(.codex, isEnabled: index.isMultiple(of: 2))
+        }
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+        await center.waitForPendingLookupCount(1)
+
+        XCTAssertEqual(center.pendingLookupCount, 1)
+        XCTAssertEqual(service.providerCleanupTaskCountForTesting, 1)
+
+        center.resumePendingRequestLookups()
+        await service.waitForProviderCleanupForTesting(.codex)
+        service.providerEnablementDidChange(.codex, isEnabled: true)
+        XCTAssertEqual(center.pendingLookupCount, 1)
+        XCTAssertEqual(service.providerCleanupTaskCountForTesting, 0)
+    }
+
+    func testDisableReenableRetainsReminderDeduplication() async {
+        let (service, center, _) = makeService()
+        center.tracksRequestsAsPending = true
+        let state = makeState(resetAfter: 6 * 3_600)
+
+        await service.evaluate([state], now: now)
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+        await center.waitForRemovalCount(1)
+        service.providerEnablementDidChange(.codex, isEnabled: true)
+        await service.evaluate([state], now: now.addingTimeInterval(60))
+
+        XCTAssertEqual(center.requests.count, 1)
+        XCTAssertTrue(center.pendingIdentifiers.isEmpty)
+    }
+
+    func testReenableRebaselinesProviderWithoutFalseCompletedResetNotification() async {
+        let (preferences, defaults, suiteName) = makePreferencesWithRemindersDisabled()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let center = TestUserNotificationCenter()
+        let store = TestNotificationStateStore()
+        let service = NotificationService(
+            center: center,
+            stateStore: store,
+            preferences: preferences,
+            locale: Locale(identifier: "en")
+        )
+        let oldReset = now.addingTimeInterval(60 * 60)
+        await service.evaluate(
+            [makeState(
+                resetAt: oldReset,
+                duration: .seconds(5 * 60 * 60),
+                usedPercentage: 82,
+                capturedAt: now
+            )],
+            now: now
+        )
+        XCTAssertEqual(store.localResetState.entries.map(\.providerID), [.codex])
+
+        preferences.setProvider(.codex, enabled: false)
+        service.providerEnablementDidChange(.codex, isEnabled: false)
+        XCTAssertTrue(store.localResetState.entries.isEmpty)
+        await center.waitForPendingLookupCount(2)
+        preferences.setProvider(.codex, enabled: true)
+        service.providerEnablementDidChange(.codex, isEnabled: true)
+        XCTAssertTrue(store.localResetState.entries.isEmpty)
+
+        let afterCapture = oldReset.addingTimeInterval(30)
+        let nextReset = oldReset.addingTimeInterval(5 * 60 * 60)
+        await service.evaluate(
+            [makeState(
+                resetAt: nextReset,
+                duration: .seconds(5 * 60 * 60),
+                usedPercentage: 1,
+                capturedAt: afterCapture
+            )],
+            now: afterCapture
+        )
+
+        XCTAssertTrue(center.requests.isEmpty)
+        XCTAssertEqual(store.localResetState.entries.map(\.providerID), [.codex])
+    }
+
     func testDisabledThresholdDoesNotScheduleNotification() async {
         let suiteName = "dev.quotapulse.tests.notifications.threshold.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -729,6 +1103,26 @@ final class NotificationServiceTests: XCTestCase {
         XCTAssertEqual(store.load().entries, [entries[0]])
     }
 
+    func testProviderLifecyclePersistenceIsBoundedToKnownProviders() {
+        let suiteName = "dev.quotapulse.tests.notifications.lifecycle-bounds.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let key = "lifecycle-bounds"
+        let lifecycleKey = "\(key).provider-lifecycle.v1"
+        defaults.set(
+            ["codex": NSNumber(value: 7), "unknown": NSNumber(value: 99)],
+            forKey: lifecycleKey
+        )
+        let store = UserDefaultsNotificationStateStore(defaults: defaults, key: key)
+
+        XCTAssertEqual(store.loadProviderLifecycleGenerations(), [.codex: 7])
+
+        store.saveProviderLifecycleGenerations([.codex: 8, .claude: 3])
+        let persisted = defaults.dictionary(forKey: lifecycleKey)
+        XCTAssertEqual(persisted?.count, ProviderID.allCases.count)
+        XCTAssertNil(persisted?["unknown"])
+    }
+
     #if DEBUG
     func testDevelopmentNotificationRequestsAuthorizationAndSchedulesFiveSecondsAhead() async throws {
         let (service, center, _) = makeService(status: .notDetermined)
@@ -867,6 +1261,12 @@ private final class TestUserNotificationCenter: UserNotificationCentering {
     var yieldsBeforeReturningAuthorizationStatus = false
     var onRequestAuthorization: (() -> Void)?
     var pendingIdentifiers: [String] = []
+    var tracksRequestsAsPending = false
+    var blocksPendingRequestLookups = false
+    private(set) var pendingLookupCount = 0
+    private var pendingLookupContinuations: [CheckedContinuation<Void, Never>] = []
+    private var pendingLookupWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
+    private var removalWaiters: [(Int, CheckedContinuation<Void, Never>)] = []
 
     init(status: NotificationAuthorizationStatus = .authorized) {
         self.status = status
@@ -888,14 +1288,62 @@ private final class TestUserNotificationCenter: UserNotificationCentering {
 
     func add(_ request: LocalNotificationRequest) async throws {
         requests.append(request)
+        if tracksRequestsAsPending {
+            pendingIdentifiers.removeAll { $0 == request.identifier }
+            pendingIdentifiers.append(request.identifier)
+        }
     }
 
     func removePendingRequests(withIdentifiers identifiers: [String]) {
         removedIdentifiers.append(identifiers)
+        if tracksRequestsAsPending {
+            pendingIdentifiers.removeAll { identifiers.contains($0) }
+        }
+        resumeRemovalWaiters()
     }
 
     func pendingRequestIdentifiers() async -> [String] {
-        pendingIdentifiers
+        pendingLookupCount += 1
+        resumePendingLookupWaiters()
+        if blocksPendingRequestLookups {
+            await withCheckedContinuation { continuation in
+                pendingLookupContinuations.append(continuation)
+            }
+        }
+        return pendingIdentifiers
+    }
+
+    func waitForPendingLookupCount(_ count: Int) async {
+        guard pendingLookupCount < count else { return }
+        await withCheckedContinuation { continuation in
+            pendingLookupWaiters.append((count, continuation))
+        }
+    }
+
+    func waitForRemovalCount(_ count: Int) async {
+        guard removedIdentifiers.count < count else { return }
+        await withCheckedContinuation { continuation in
+            removalWaiters.append((count, continuation))
+        }
+    }
+
+    func resumePendingRequestLookups() {
+        blocksPendingRequestLookups = false
+        let continuations = pendingLookupContinuations
+        pendingLookupContinuations.removeAll()
+        continuations.forEach { $0.resume() }
+    }
+
+    private func resumePendingLookupWaiters() {
+        let ready = pendingLookupWaiters.filter { $0.0 <= pendingLookupCount }
+        pendingLookupWaiters.removeAll { $0.0 <= pendingLookupCount }
+        ready.forEach { $0.1.resume() }
+    }
+
+    private func resumeRemovalWaiters() {
+        let ready = removalWaiters.filter { $0.0 <= removedIdentifiers.count }
+        removalWaiters.removeAll { $0.0 <= removedIdentifiers.count }
+        ready.forEach { $0.1.resume() }
     }
 }
 
@@ -922,6 +1370,7 @@ private final class TestDateSource: @unchecked Sendable {
 private final class SharedNotificationState {
     var state = NotificationDeduplicationState()
     var localResetState = LocalResetDetectionState()
+    var providerLifecycleGenerations: [ProviderID: UInt64] = [:]
 }
 
 @MainActor
@@ -930,6 +1379,10 @@ private final class TestNotificationStateStore: NotificationStateStoring {
 
     var state: NotificationDeduplicationState {
         sharedState.state
+    }
+
+    var localResetState: LocalResetDetectionState {
+        sharedState.localResetState
     }
 
     init(sharedState: SharedNotificationState = SharedNotificationState()) {
@@ -950,6 +1403,14 @@ private final class TestNotificationStateStore: NotificationStateStoring {
 
     func saveLocalResetDetectionState(_ state: LocalResetDetectionState) {
         sharedState.localResetState = state
+    }
+
+    func loadProviderLifecycleGenerations() -> [ProviderID: UInt64] {
+        sharedState.providerLifecycleGenerations
+    }
+
+    func saveProviderLifecycleGenerations(_ generations: [ProviderID: UInt64]) {
+        sharedState.providerLifecycleGenerations = generations
     }
 }
 

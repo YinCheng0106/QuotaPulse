@@ -30,6 +30,57 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(fetchCount, 1)
     }
 
+    func testDashboardStateContainsOnlyEnabledProviders() {
+        let model = AppModel(
+            providerIDs: [.codex, .claude],
+            enabledProviderIDs: [.claude],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: [])
+            ),
+            notificationService: TestNotificationService(),
+            observesLifecycle: false
+        )
+
+        XCTAssertEqual(model.providerStates.map(\.providerID), [.codex, .claude])
+        XCTAssertEqual(model.activeProviderStates.map(\.providerID), [.claude])
+        XCTAssertEqual(model.providerStates.first?.status, .disabled)
+        XCTAssertTrue(model.hasEnabledProviders)
+    }
+
+    func testDashboardStateReportsEmptyWhenAllProvidersAreDisabled() {
+        let model = AppModel(
+            providerIDs: [.codex, .claude],
+            enabledProviderIDs: [],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: [])
+            ),
+            notificationService: TestNotificationService(),
+            observesLifecycle: false
+        )
+
+        XCTAssertTrue(model.activeProviderStates.isEmpty)
+        XCTAssertFalse(model.hasEnabledProviders)
+        XCTAssertEqual(model.providerStates.map(\.status), [.disabled, .disabled])
+    }
+
+    func testProviderEligibilityUpdatesDashboardStateImmediately() {
+        let model = AppModel(
+            providerIDs: [.codex, .claude],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: [])
+            ),
+            notificationService: TestNotificationService(),
+            observesLifecycle: false
+        )
+
+        model.applyProviderEligibilityChange(.codex, isEnabled: false)
+        XCTAssertEqual(model.activeProviderStates.map(\.providerID), [.claude])
+
+        model.applyProviderEligibilityChange(.codex, isEnabled: true)
+        XCTAssertEqual(model.activeProviderStates.map(\.providerID), [.codex, .claude])
+        XCTAssertEqual(model.providerStates.first?.status, .loading)
+    }
+
     func testRefreshPublishesLoadingAndUsesSnapshotCaptureTime() async {
         let capturedAt = Date(timeIntervalSince1970: 2_000_000_000)
         let gate = AppModelProviderGate()

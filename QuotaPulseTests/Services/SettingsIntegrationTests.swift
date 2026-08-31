@@ -22,6 +22,50 @@ final class SettingsIntegrationTests: XCTestCase {
         XCTAssertEqual(claudeFetchCount, 1)
     }
 
+    func testDisabledProviderIsSkippedDuringStartupRefresh() async {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        store.setProvider(.codex, enabled: false)
+        let codex = SettingsCountingProvider(id: .codex)
+        let claude = SettingsCountingProvider(id: .claude)
+        let providers: [any UsageProvider] = [codex, claude]
+        let model = AppModel(
+            providerIDs: providers.map(\.id),
+            enabledProviderIDs: [.claude],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: providers, preferences: store)
+            ),
+            notificationService: SettingsNotificationService(),
+            observesLifecycle: false
+        )
+
+        model.start()
+        await waitUntilRefreshFinishes(model)
+
+        let codexFetchCount = await codex.fetchCount
+        let claudeFetchCount = await claude.fetchCount
+        XCTAssertEqual(codexFetchCount, 0)
+        XCTAssertEqual(claudeFetchCount, 1)
+        XCTAssertEqual(model.activeProviderStates.map(\.providerID), [.claude])
+    }
+
+    func testManualRefreshFetchesEveryEnabledProviderAndSkipsDisabledProvider() async {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        store.setProvider(.claude, enabled: false)
+        let codex = SettingsCountingProvider(id: .codex)
+        let claude = SettingsCountingProvider(id: .claude)
+        let service = UsageService(providers: [codex, claude], preferences: store)
+
+        _ = await service.refresh()
+        _ = await service.refresh()
+
+        let codexFetchCount = await codex.fetchCount
+        let claudeFetchCount = await claude.fetchCount
+        XCTAssertEqual(codexFetchCount, 2)
+        XCTAssertEqual(claudeFetchCount, 0)
+    }
+
     func testReenablingCodexRestoresWorkWithoutAffectingClaude() async {
         let (store, defaults, suiteName) = makeStore()
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -39,6 +83,66 @@ final class SettingsIntegrationTests: XCTestCase {
         let claudeFetchCount = await claude.fetchCount
         XCTAssertEqual(codexFetchCount, 1)
         XCTAssertEqual(claudeFetchCount, 2)
+    }
+
+    func testSettingsReenableRefreshesProviderWithoutRestart() async {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        store.setProvider(.codex, enabled: false)
+        let codex = SettingsCountingProvider(id: .codex)
+        let providers: [any UsageProvider] = [codex]
+        let notifications = SettingsNotificationService()
+        let appModel = AppModel(
+            providerIDs: [.codex],
+            enabledProviderIDs: [],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: providers, preferences: store)
+            ),
+            notificationService: notifications,
+            observesLifecycle: false
+        )
+        let settingsModel = SettingsModel(
+            store: store,
+            appModel: appModel,
+            notificationService: notifications,
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+
+        let transitionResult: Void = settingsModel.setProvider(.codex, enabled: true)
+        XCTAssertTrue(store.isCodexEnabled)
+        XCTAssertEqual(appModel.activeProviderStates.map(\.providerID), [.codex])
+        _ = transitionResult
+        await appModel.refresh()
+
+        let codexFetchCount = await codex.fetchCount
+        XCTAssertEqual(codexFetchCount, 1)
+        XCTAssertEqual(appModel.activeProviderStates.map(\.providerID), [.codex])
+        XCTAssertEqual(appModel.activeProviderStates.first?.status, .available)
+    }
+
+    func testProviderTransitionAPIRequiresNoTaskFromSettingsView() {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let notifications = SettingsNotificationService()
+        let model = SettingsModel(
+            store: store,
+            appModel: AppModel(
+                providerIDs: [.codex],
+                refreshCoordinator: RefreshCoordinator(
+                    usageService: UsageService(providers: [])
+                ),
+                notificationService: notifications,
+                observesLifecycle: false
+            ),
+            notificationService: notifications,
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+
+        let result: Void = model.setProvider(.codex, enabled: false)
+
+        _ = result
+        XCTAssertFalse(store.isCodexEnabled)
+        XCTAssertEqual(notifications.providerTransitions, [.codex: false])
     }
 
     func testLaunchAtLoginUsesControllerStateAfterSuccessAndFailure() async {
@@ -176,6 +280,12 @@ final class SettingsIntegrationTests: XCTestCase {
             observesLifecycle: false
         )
     }
+
+    private func waitUntilRefreshFinishes(_ model: AppModel) async {
+        while model.isRefreshing {
+            await Task.yield()
+        }
+    }
 }
 
 @MainActor
@@ -211,8 +321,13 @@ private actor SettingsCountingProvider: UsageProvider {
 
 @MainActor
 private final class SettingsNotificationService: NotificationServicing {
+    private(set) var providerTransitions: [ProviderID: Bool] = [:]
+
     func evaluate(_ providerStates: [ProviderState], now: Date) async {}
     func authorizationStatus() async -> NotificationAuthorizationStatus { .authorized }
+    func providerEnablementDidChange(_ providerID: ProviderID, isEnabled: Bool) {
+        providerTransitions[providerID] = isEnabled
+    }
     #if DEBUG
     func sendTestNotification() async throws {}
     #endif

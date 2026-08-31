@@ -100,6 +100,31 @@ final class AppLocalizationTests: XCTestCase {
         )
     }
 
+    func testAllProvidersDisabledEmptyStateUsesSupportedLanguages() {
+        XCTAssertEqual(
+            AppLocalization.string("No providers enabled", locale: Locale(identifier: "en")),
+            "No providers enabled"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "No providers enabled",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "沒有啟用任何提供者"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Enable a provider in Settings to start monitoring usage.",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "請在「設定」中啟用提供者，以開始監看使用量。"
+        )
+        XCTAssertEqual(
+            AppLocalization.string("Open Settings", locale: Locale(identifier: "zh-Hant-TW")),
+            "開啟設定"
+        )
+    }
+
     func testMenuBarRecoveryUsesSupportedLanguages() {
         XCTAssertEqual(
             AppLocalization.string(

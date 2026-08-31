@@ -10,27 +10,35 @@ struct DashboardView: View {
         #endif
 
         VStack(spacing: 12) {
+            let activeProviderStates = model.activeProviderStates
+            let isRefreshingEnabledProviders = model.isRefreshing && model.hasEnabledProviders
             DashboardHeaderView(
                 status: DashboardHeaderStatus(
-                    isRefreshing: model.isRefreshing,
-                    hasLoadingProvider: model.providerStates.contains {
+                    isRefreshing: isRefreshingEnabledProviders,
+                    hasLoadingProvider: activeProviderStates.contains {
                         $0.status == .loading
                     },
                     lastUpdatedAt: model.lastUpdatedAt
                 ),
-                isRefreshing: model.isRefreshing,
+                isRefreshing: isRefreshingEnabledProviders,
+                canRefresh: model.hasEnabledProviders,
                 onRefresh: refresh
             )
 
-            ScrollView {
-                LazyVStack(spacing: 10) {
-                    ForEach(model.providerStates) { state in
-                        ProviderCardView(state: state)
+            if activeProviderStates.isEmpty {
+                DashboardEmptyStateView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 10) {
+                        ForEach(activeProviderStates) { state in
+                            ProviderCardView(state: state)
+                        }
                     }
+                    .padding(.vertical, 1)
                 }
-                .padding(.vertical, 1)
+                .scrollIndicators(.never)
             }
-            .scrollIndicators(.never)
 
             DashboardActionsView(
                 onQuit: quit
@@ -60,6 +68,20 @@ struct DashboardView: View {
     #endif
 }
 
+private struct DashboardEmptyStateView: View {
+    var body: some View {
+        ContentUnavailableView {
+            Label("No providers enabled", systemImage: "pause.circle")
+        } description: {
+            Text("Enable a provider in Settings to start monitoring usage.")
+        } actions: {
+            SettingsLink {
+                Text("Open Settings")
+            }
+        }
+    }
+}
+
 enum DashboardHeaderStatus: Equatable {
     case loading
     case updated(Date)
@@ -83,6 +105,7 @@ enum DashboardHeaderStatus: Equatable {
 private struct DashboardHeaderView: View {
     let status: DashboardHeaderStatus
     let isRefreshing: Bool
+    let canRefresh: Bool
     let onRefresh: () -> Void
 
     var body: some View {
@@ -112,7 +135,7 @@ private struct DashboardHeaderView: View {
                 .labelStyle(.iconOnly)
                 .buttonStyle(.borderless)
                 .keyboardShortcut("r", modifiers: .command)
-                .disabled(isRefreshing)
+                .disabled(isRefreshing || !canRefresh)
                 .help("Refresh usage (⌘R)")
                 .accessibilityHint("Refreshes provider usage")
         }

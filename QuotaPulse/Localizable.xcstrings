@@ -381,6 +381,16 @@
         }
       }
     },
+    "Enable a provider in Settings to start monitoring usage." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在「設定」中啟用提供者，以開始監看使用量。"
+          }
+        }
+      }
+    },
     "Enable this provider in Settings to resume updates." : {
       "localizations" : {
         "zh-Hant" : {
@@ -670,6 +680,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "否"
+          }
+        }
+      }
+    },
+    "No providers enabled" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有啟用任何提供者"
           }
         }
       }

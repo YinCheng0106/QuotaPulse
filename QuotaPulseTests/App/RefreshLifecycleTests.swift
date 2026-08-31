@@ -29,6 +29,37 @@ final class RefreshLifecycleTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(finalDuration), 15 * 60, accuracy: 0.01)
     }
 
+    func testScheduleWaitsForNotificationEvaluationWithoutLosingDeadline() async throws {
+        let clock = TestDateSource(Date(timeIntervalSince1970: 2_000_000_000))
+        let state = LifecycleProviderState(now: clock.current)
+        let sleeper = ControlledRefreshSleeper()
+        let notifications = LifecycleNotificationService(blocksEvaluation: true)
+        let model = AppModel(
+            providerIDs: [.codex],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: [LifecycleProvider(state: state)])
+            ),
+            notificationService: notifications,
+            refreshPolicy: policy,
+            refreshSleeper: sleeper,
+            now: clock.current,
+            observesLifecycle: false
+        )
+
+        model.refreshManually()
+        await notifications.waitForEvaluation()
+        let activeRequestCount = await sleeper.activeRequestCount
+        XCTAssertEqual(activeRequestCount, 0)
+
+        clock.advance(by: 60)
+        notifications.resumeEvaluation()
+        await sleeper.waitForRequestCount(1)
+
+        let latestDurationSeconds = await sleeper.latestDurationSeconds
+        let scheduledDelay = try XCTUnwrap(latestDurationSeconds)
+        XCTAssertEqual(scheduledDelay, 14 * 60, accuracy: 0.01)
+    }
+
     func testManualRefreshRunsImmediately() async {
         let state = LifecycleProviderState()
         let sleeper = ControlledRefreshSleeper()
@@ -39,6 +70,222 @@ final class RefreshLifecycleTests: XCTestCase {
 
         let invocationCount = await state.invocationCount
         XCTAssertEqual(invocationCount, 2)
+    }
+
+    func testBackgroundRefreshSkipsDisabledProvider() async {
+        let suiteName = "dev.quotapulse.tests.background-disabled.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        preferences.setProvider(.codex, enabled: false)
+        let codexState = LifecycleProviderState()
+        let claudeState = LifecycleProviderState()
+        let providers: [any UsageProvider] = [
+            LifecycleProvider(state: codexState),
+            LifecycleProvider(state: claudeState, id: .claude),
+        ]
+        let sleeper = ControlledRefreshSleeper()
+        let notifications = LifecycleNotificationService()
+        let model = AppModel(
+            providerIDs: providers.map(\.id),
+            enabledProviderIDs: [.claude],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: providers, preferences: preferences)
+            ),
+            notificationService: notifications,
+            refreshPolicy: policy,
+            refreshSleeper: sleeper,
+            observesLifecycle: false
+        )
+
+        await model.refresh()
+        await sleeper.waitForRequestCount(1)
+        await sleeper.resumeNext()
+        await claudeState.waitForInvocationCount(2)
+        await sleeper.waitForRequestCount(2)
+
+        let codexInvocationCount = await codexState.invocationCount
+        let claudeInvocationCount = await claudeState.invocationCount
+        let activeRequestCount = await sleeper.activeRequestCount
+        XCTAssertEqual(codexInvocationCount, 0)
+        XCTAssertEqual(claudeInvocationCount, 2)
+        XCTAssertEqual(activeRequestCount, 1)
+    }
+
+    func testAllDisabledProvidersCreateNoRefreshOrScheduleWork() async {
+        let codexState = LifecycleProviderState()
+        let claudeState = LifecycleProviderState()
+        let providers: [any UsageProvider] = [
+            LifecycleProvider(state: codexState),
+            LifecycleProvider(state: claudeState, id: .claude),
+        ]
+        let sleeper = ControlledRefreshSleeper()
+        let notifications = LifecycleNotificationService()
+        let model = AppModel(
+            providerIDs: providers.map(\.id),
+            enabledProviderIDs: [],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: providers)
+            ),
+            notificationService: notifications,
+            refreshPolicy: policy,
+            refreshSleeper: sleeper,
+            observesLifecycle: false
+        )
+
+        model.start()
+        model.refreshManually()
+        model.menuDidOpen()
+        await Task.yield()
+
+        let codexInvocationCount = await codexState.invocationCount
+        let claudeInvocationCount = await claudeState.invocationCount
+        let activeRequestCount = await sleeper.activeRequestCount
+        XCTAssertEqual(codexInvocationCount, 0)
+        XCTAssertEqual(claudeInvocationCount, 0)
+        XCTAssertEqual(activeRequestCount, 0)
+        XCTAssertFalse(model.isRefreshing)
+    }
+
+    func testDisablingProviderDuringRefreshAllowsSafeCompletionThenSkipsFutureWork() async {
+        let suiteName = "dev.quotapulse.tests.inflight-disabled.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        let codexState = LifecycleProviderState(blockedInvocations: [1])
+        let claudeState = LifecycleProviderState()
+        let providers: [any UsageProvider] = [
+            LifecycleProvider(state: codexState),
+            LifecycleProvider(state: claudeState, id: .claude),
+        ]
+        let sleeper = ControlledRefreshSleeper()
+        let notifications = LifecycleNotificationService()
+        let model = AppModel(
+            providerIDs: providers.map(\.id),
+            enabledProviderIDs: [.codex, .claude],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: providers, preferences: preferences)
+            ),
+            notificationService: notifications,
+            refreshPolicy: policy,
+            refreshSleeper: sleeper,
+            observesLifecycle: false
+        )
+
+        model.refreshManually()
+        await codexState.waitForInvocationCount(1)
+        preferences.setProvider(.codex, enabled: false)
+        model.applyProviderEligibilityChange(.codex, isEnabled: false)
+        await codexState.unblockInvocation(1)
+        await waitUntilRefreshFinishes(model)
+
+        XCTAssertEqual(model.activeProviderStates.map(\.providerID), [.claude])
+        await model.refresh()
+
+        let codexInvocationCount = await codexState.invocationCount
+        let claudeInvocationCount = await claudeState.invocationCount
+        let maximumCodexConcurrency = await codexState.maximumConcurrentFetches
+        XCTAssertEqual(codexInvocationCount, 1)
+        XCTAssertEqual(claudeInvocationCount, 2)
+        XCTAssertEqual(maximumCodexConcurrency, 1)
+        XCTAssertEqual(model.providerStates.first?.status, .disabled)
+        XCTAssertNil(model.providerStates.first?.snapshot)
+        XCTAssertFalse(notifications.evaluatedProviderIDs.joined().contains(.codex))
+    }
+
+    func testEnablingProviderDuringRefreshSchedulesExactlyOneFollowUp() async {
+        let suiteName = "dev.quotapulse.tests.inflight-enabled.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        preferences.setProvider(.codex, enabled: false)
+        let claudeState = LifecycleProviderState(blockedInvocations: [1])
+        let codexState = LifecycleProviderState()
+        let providers: [any UsageProvider] = [
+            LifecycleProvider(state: claudeState, id: .claude),
+            LifecycleProvider(state: codexState),
+        ]
+        let sleeper = ControlledRefreshSleeper()
+        let model = AppModel(
+            providerIDs: providers.map(\.id),
+            enabledProviderIDs: [.claude],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: providers, preferences: preferences)
+            ),
+            notificationService: LifecycleNotificationService(),
+            refreshPolicy: policy,
+            refreshSleeper: sleeper,
+            observesLifecycle: false
+        )
+
+        model.refreshManually()
+        await claudeState.waitForInvocationCount(1)
+        preferences.setProvider(.codex, enabled: true)
+        model.applyProviderEligibilityChange(.codex, isEnabled: true)
+        for _ in 0..<20 {
+            model.refreshAfterProviderEnablement(.codex)
+        }
+
+        await claudeState.unblockInvocation(1)
+        await codexState.waitForInvocationCount(1)
+        await waitUntilRefreshFinishes(model)
+
+        let codexInvocationCount = await codexState.invocationCount
+        let claudeInvocationCount = await claudeState.invocationCount
+        let maximumCodexConcurrency = await codexState.maximumConcurrentFetches
+        let maximumClaudeConcurrency = await claudeState.maximumConcurrentFetches
+        XCTAssertEqual(codexInvocationCount, 1)
+        XCTAssertEqual(claudeInvocationCount, 2)
+        XCTAssertEqual(maximumCodexConcurrency, 1)
+        XCTAssertEqual(maximumClaudeConcurrency, 1)
+        XCTAssertEqual(model.providerStates.map(\.status), [.available, .available])
+
+        await Task.yield()
+        let finalCodexInvocationCount = await codexState.invocationCount
+        let finalClaudeInvocationCount = await claudeState.invocationCount
+        XCTAssertEqual(finalCodexInvocationCount, 1)
+        XCTAssertEqual(finalClaudeInvocationCount, 2)
+    }
+
+    func testRapidLifecycleChangesDuringRefreshConvergeToFinalDisabledState() async {
+        let suiteName = "dev.quotapulse.tests.inflight-final-disabled.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        let codexState = LifecycleProviderState(blockedInvocations: [1])
+        let sleeper = ControlledRefreshSleeper()
+        let model = AppModel(
+            providerIDs: [.codex],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(
+                    providers: [LifecycleProvider(state: codexState)],
+                    preferences: preferences
+                )
+            ),
+            notificationService: LifecycleNotificationService(),
+            refreshPolicy: policy,
+            refreshSleeper: sleeper,
+            observesLifecycle: false
+        )
+
+        model.refreshManually()
+        await codexState.waitForInvocationCount(1)
+        preferences.setProvider(.codex, enabled: false)
+        model.applyProviderEligibilityChange(.codex, isEnabled: false)
+        preferences.setProvider(.codex, enabled: true)
+        model.applyProviderEligibilityChange(.codex, isEnabled: true)
+        model.refreshAfterProviderEnablement(.codex)
+        preferences.setProvider(.codex, enabled: false)
+        model.applyProviderEligibilityChange(.codex, isEnabled: false)
+
+        await codexState.unblockInvocation(1)
+        await waitUntilRefreshFinishes(model)
+
+        let invocationCount = await codexState.invocationCount
+        XCTAssertEqual(invocationCount, 1)
+        XCTAssertEqual(model.providerStates.first?.status, .disabled)
+        XCTAssertNil(model.providerStates.first?.snapshot)
+        XCTAssertFalse(model.hasEnabledProviders)
     }
 
     func testRepeatedManualRefreshWhileRefreshIsInFlightDoesNotOverlap() async {
@@ -551,6 +798,37 @@ private final class TestDateSource: @unchecked Sendable {
 
 @MainActor
 private final class LifecycleNotificationService: NotificationServicing {
-    func evaluate(_ providerStates: [ProviderState], now: Date) async {}
+    private(set) var evaluatedProviderIDs: [[ProviderID]] = []
+    private let blocksEvaluation: Bool
+    private var evaluationContinuation: CheckedContinuation<Void, Never>?
+    private var evaluationWaiters: [CheckedContinuation<Void, Never>] = []
+
+    init(blocksEvaluation: Bool = false) {
+        self.blocksEvaluation = blocksEvaluation
+    }
+
+    func evaluate(_ providerStates: [ProviderState], now: Date) async {
+        evaluatedProviderIDs.append(providerStates.map(\.providerID))
+        let waiters = evaluationWaiters
+        evaluationWaiters.removeAll()
+        waiters.forEach { $0.resume() }
+        if blocksEvaluation {
+            await withCheckedContinuation { continuation in
+                evaluationContinuation = continuation
+            }
+        }
+    }
+
+    func waitForEvaluation() async {
+        guard evaluatedProviderIDs.isEmpty else { return }
+        await withCheckedContinuation { continuation in
+            evaluationWaiters.append(continuation)
+        }
+    }
+
+    func resumeEvaluation() {
+        evaluationContinuation?.resume()
+        evaluationContinuation = nil
+    }
     func sendTestNotification() async throws {}
 }

@@ -3,6 +3,26 @@ import XCTest
 @testable import QuotaPulse
 
 final class CodexProviderTests: XCTestCase {
+    @MainActor
+    func testDisabledCodexDoesNotReachAppServerReader() async {
+        let suiteName = "dev.quotapulse.tests.codex-disabled-reader.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let preferences = SettingsStore(defaults: defaults)
+        preferences.setProvider(.codex, enabled: false)
+        let reader = CountingCodexRateLimitsReader()
+        let provider = CodexProvider(reader: reader)
+
+        let states = await UsageService(
+            providers: [provider],
+            preferences: preferences
+        ).refresh()
+
+        let readCount = await reader.readCount
+        XCTAssertEqual(states.map(\.status), [.disabled])
+        XCTAssertEqual(readCount, 0)
+    }
+
     func testValidUsageResponseIncludesNormalizedAvailabilityAndLastUpdatedTime() async throws {
         let capturedAt = Date(timeIntervalSince1970: 2_000_000_000)
         let response = CodexRateLimitsResult(
@@ -329,5 +349,14 @@ private struct StubCodexRateLimitsReader: CodexRateLimitsReading {
 
     func readRateLimits() async throws -> CodexRateLimitsResult {
         try result.get()
+    }
+}
+
+private actor CountingCodexRateLimitsReader: CodexRateLimitsReading {
+    private(set) var readCount = 0
+
+    func readRateLimits() async throws -> CodexRateLimitsResult {
+        readCount += 1
+        return CodexRateLimitsResult(rateLimits: nil, rateLimitsByLimitId: nil)
     }
 }

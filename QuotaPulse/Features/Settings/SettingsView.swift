@@ -52,7 +52,9 @@ struct SettingsView: View {
                     "Codex",
                     isOn: Binding(
                         get: { model.store.isCodexEnabled },
-                        set: { model.setProvider(.codex, enabled: $0) }
+                        set: { enabled in
+                            model.setProvider(.codex, enabled: enabled)
+                        }
                     )
                 )
 
@@ -60,7 +62,9 @@ struct SettingsView: View {
                     "Claude Code (Experimental, Unverified)",
                     isOn: Binding(
                         get: { model.store.isClaudeEnabled },
-                        set: { model.setProvider(.claude, enabled: $0) }
+                        set: { enabled in
+                            model.setProvider(.claude, enabled: enabled)
+                        }
                     )
                 )
             }

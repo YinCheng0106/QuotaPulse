@@ -30,10 +30,16 @@ enum AppDependencies {
         let refreshCoordinator = RefreshCoordinator(usageService: usageService)
         let runsAutomatically = !AppRuntimeEnvironment.isRunningTests
 
+        let resolvedNotificationService = notificationService
+            ?? NotificationService(preferences: preferences)
+        resolvedNotificationService.prepareForLaunch()
         let model = AppModel(
             providerIDs: providers.map(\.id),
+            enabledProviderIDs: Set(
+                providers.map(\.id).filter { preferences?.isProviderEnabled($0) ?? true }
+            ),
             refreshCoordinator: refreshCoordinator,
-            notificationService: notificationService ?? NotificationService(preferences: preferences),
+            notificationService: resolvedNotificationService,
             observesLifecycle: runsAutomatically
         )
         if runsAutomatically {
