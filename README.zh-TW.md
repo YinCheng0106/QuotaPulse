@@ -70,6 +70,8 @@ xcodebuild \
   build
 ```
 
+Debug build 使用獨立的 `dev.quotapulse.development.app` identity，並顯示為 **QuotaPulse Debug**。這會讓開發期間的 `MenuBarExtra`、登入時啟動、通知權限與 `UserDefaults` 狀態和 production `dev.quotapulse.app` identity 分開；兩個 configuration 刻意不共用偏好設定。
+
 ## Codex 整合方式
 
 QuotaPulse 會尋找相容的 Codex 執行檔，優先使用 ChatGPT.app 內附的 runtime，再 fallback 到支援的舊版或獨立安裝位置。它會直接啟動 `codex app-server`，並透過已有文件的 stdio protocol 呼叫 `account/rateLimits/read`。

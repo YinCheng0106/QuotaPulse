@@ -10,6 +10,7 @@
 - Xcode 與 Command Line Tools 可正常使用。
 - ChatGPT.app 可正常啟動，而且其整合 Codex runtime 已登入並可取得額度。
 - 測試期間避免同時執行另一份 QuotaPulse。
+- 每次 Xcode Run、command-line launch 或 Computer Use 前，先以 QuotaPulse 的正常 Quit 結束既有 Debug process，並確認沒有另一個相同 bundle host；不要用 `open -n` 或同時保留 Xcode Run 與 DerivedData launch。
 - 測試前記錄 macOS、Xcode、ChatGPT.app 與 Codex runtime 版本；不得記錄 credential、token、provider raw response、prompt、conversation、session 或私密路徑。
 - 先執行完整 XCTest；自動測試通過只代表既有不變量仍成立，不代表長時間穩定。
 
@@ -17,6 +18,25 @@
 
 1. **Release soak**：正式記憶體與 CPU 驗收，以 Activity Monitor、`ps`、`top`、`lsof` 與 Instruments 觀察。效能預算只套用在這一輪。
 2. **Debug diagnostics run**：觀察 refresh、scheduler、Codex child、reader、notification 與 provider 狀態。Debug 記憶體不可拿來判定 Release 是否符合預算。
+
+### 開發與正式 bundle identity
+
+QuotaPulse 使用同一個 app target，透過 Xcode build configuration 隔離 macOS 以 bundle identifier 管理的狀態：
+
+| Configuration | Bundle identifier | Display name |
+| --- | --- | --- |
+| Debug | `dev.quotapulse.development.app` | `QuotaPulse Debug` |
+| Release | `dev.quotapulse.app` | `QuotaPulse` |
+
+因此平常從 Xcode Run 啟動 Debug 時，`MenuBarExtra` 的 Control Center 可見性、`SMAppService.mainApp` 的 Launch at Login registration、`UserDefaults.standard` domain 與 `UNUserNotificationCenter.current()` 的權限／通知都屬於 Debug identity，不會沿用或寫入 Release identity。兩者不使用 shared preferences，也沒有 App Group entitlement；Debug 首次啟動看到預設設定是預期行為，不應從 Release preferences 手動搬移。
+
+`QuotaPulse.app` 檔名與 `QuotaPulse` executable 刻意維持不變，讓 test host 與既有指令保持穩定；在 Finder、系統通知與相關 macOS 設定中，Debug 以 `QuotaPulse Debug` 顯示。要驗證 Release runtime 時，務必明確使用 Release 產物的完整路徑，不要把 Debug build 複製、改名或註冊成 production app。
+
+App-hosted live tests 的 UserDefaults opt-in 也必須寫入 Debug domain：`runLiveNotificationTest` 與 `runLiveCodexProviderTest` 都使用 `dev.quotapulse.development.app`，測試後立即刪除。不要再把這些 development-only keys 寫入 `dev.quotapulse.app`。
+
+一般 XCTest 也是 app-hosted，平行 suite 可能同時建立多個 `QuotaPulse.app` test processes。Test host 的 `MenuBarExtra` session insertion 固定為 `false`，所以它們不要求顯示 status item；binding callback 也不寫 persisted user intent。所有直接修改 `SettingsStore` 的 tests 必須繼續使用 UUID suite 並清除 domain。完整測試前後都應抽查 `presentation.menu-bar-extra.requested` 沒有改變；system-level Control Center 可見性不是普通 XCTest 的驗證項目。
+
+若要做實際 Launch at Login register／restart 測試，先把已簽章 Debug artifact 安裝到獨立且穩定的 `/Applications/QuotaPulse Debug.app`，再從該路徑啟用；不要覆蓋 `/Applications/QuotaPulse.app`。用 `sfltool dumpbtm` 確認紀錄屬於 `dev.quotapulse.development.app`，測試完成後先在 QuotaPulse Debug 關閉登入時啟動，再移除測試 artifact。DerivedData 或 `/tmp` 啟動只適合確認 UI／identity，不足以宣稱 installed-app registration 與重新登入已通過。
 
 ## 2. 建置與啟動
 
@@ -66,7 +86,7 @@ Debug build 的 Settings > Development 有 `Log runtime snapshot`。它只在按
 ```sh
 /usr/bin/log stream \
   --style compact \
-  --predicate 'subsystem == "dev.quotapulse.app" AND category == "RuntimeDiagnostics"'
+  --predicate 'subsystem == "dev.quotapulse.development.app" AND category == "RuntimeDiagnostics"'
 ```
 
 主要欄位：

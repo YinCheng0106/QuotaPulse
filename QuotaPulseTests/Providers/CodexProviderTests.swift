@@ -305,11 +305,13 @@ final class CodexProviderTests: XCTestCase {
     }
 
     func testLiveCodexProviderWhenExplicitlyEnabled() async throws {
+        let debugBundleIdentifier = "dev.quotapulse.development.app"
         let isEnabled = ProcessInfo.processInfo.environment["QUOTAPULSE_RUN_LIVE_CODEX_TEST"] == "1"
             || UserDefaults.standard.bool(forKey: "runLiveCodexProviderTest")
         guard isEnabled else {
             throw XCTSkip("Set QUOTAPULSE_RUN_LIVE_CODEX_TEST=1 for the opt-in live provider check.")
         }
+        XCTAssertEqual(Bundle.main.bundleIdentifier, debugBundleIdentifier)
 
         let snapshot = try await CodexProvider().fetchUsage()
 

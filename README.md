@@ -70,6 +70,8 @@ xcodebuild \
   build
 ```
 
+Debug builds use the separate `dev.quotapulse.development.app` identity and display as **QuotaPulse Debug**. This keeps development `MenuBarExtra`, Launch at Login, notification-permission, and `UserDefaults` state separate from the production `dev.quotapulse.app` identity. The two configurations intentionally do not share preferences.
+
 ## How Codex integration works
 
 QuotaPulse locates a compatible Codex executable, preferring the runtime bundled in ChatGPT.app and falling back to supported legacy or standalone locations. It launches `codex app-server` directly and requests `account/rateLimits/read` over the documented stdio protocol.

@@ -745,11 +745,13 @@ final class NotificationServiceTests: XCTestCase {
     }
 
     func testLiveDevelopmentNotificationWhenExplicitlyEnabled() async throws {
+        let debugBundleIdentifier = "dev.quotapulse.development.app"
         let isEnabled = ProcessInfo.processInfo.environment["QUOTAPULSE_RUN_LIVE_NOTIFICATION_TEST"] == "1"
             || UserDefaults.standard.bool(forKey: "runLiveNotificationTest")
         guard isEnabled else {
             throw XCTSkip("Set QUOTAPULSE_RUN_LIVE_NOTIFICATION_TEST=1 for the opt-in system notification check.")
         }
+        XCTAssertEqual(Bundle.main.bundleIdentifier, debugBundleIdentifier)
 
         let identifier = "quotapulse.test-notification"
         let systemCenter = UNUserNotificationCenter.current()
