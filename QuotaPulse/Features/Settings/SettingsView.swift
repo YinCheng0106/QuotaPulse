@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SettingsView: View {
@@ -11,6 +12,22 @@ struct SettingsView: View {
 
         Form {
             Section("General") {
+                Toggle(
+                    "Show QuotaPulse in Menu Bar",
+                    isOn: Binding(
+                        get: { model.store.isMenuBarExtraRequested },
+                        set: { requested in
+                            model.setMenuBarExtraRequested(requested)
+                            if !requested {
+                                DispatchQueue.main.async {
+                                    model.setMenuBarExtraRequested(false)
+                                    NSApplication.shared.terminate(nil)
+                                }
+                            }
+                        }
+                    )
+                )
+
                 Toggle(
                     "Launch at Login",
                     isOn: Binding(

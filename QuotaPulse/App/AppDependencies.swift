@@ -1,5 +1,15 @@
 import Foundation
 
+enum AppRuntimeEnvironment {
+    static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    }
+
+    static var shouldInsertMenuBarExtraOnLaunch: Bool {
+        !isRunningTests
+    }
+}
+
 @MainActor
 enum AppDependencies {
     struct Runtime {
@@ -18,7 +28,7 @@ enum AppDependencies {
     ) -> AppModel {
         let usageService = UsageService(providers: providers, preferences: preferences)
         let refreshCoordinator = RefreshCoordinator(usageService: usageService)
-        let runsAutomatically = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
+        let runsAutomatically = !AppRuntimeEnvironment.isRunningTests
 
         let model = AppModel(
             providerIDs: providers.map(\.id),

@@ -100,6 +100,37 @@ final class AppLocalizationTests: XCTestCase {
         )
     }
 
+    func testMenuBarRecoveryUsesSupportedLanguages() {
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Show QuotaPulse in Menu Bar",
+                locale: Locale(identifier: "en")
+            ),
+            "Show QuotaPulse in Menu Bar"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Show QuotaPulse in Menu Bar",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "在選單列顯示 QuotaPulse"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "QuotaPulse is hidden",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "QuotaPulse 已隱藏"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Show in Menu Bar",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "顯示於選單列"
+        )
+    }
+
     func testDiagnosticsUIUsesSupportedLanguages() {
         XCTAssertEqual(
             AppLocalization.string("Diagnostics", locale: Locale(identifier: "en")),

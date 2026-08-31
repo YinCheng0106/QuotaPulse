@@ -3,6 +3,11 @@ import XCTest
 
 @MainActor
 final class AppModelTests: XCTestCase {
+    func testHostedUnitTestsDoNotRequestMenuBarInsertion() {
+        XCTAssertTrue(AppRuntimeEnvironment.isRunningTests)
+        XCTAssertFalse(AppRuntimeEnvironment.shouldInsertMenuBarExtraOnLaunch)
+    }
+
     func testLiveDependenciesUseBothSharedProviderAdapters() {
         let providers = AppDependencies.makeLiveProviders()
 

@@ -19,6 +19,7 @@ private final class SystemDiagnosticClipboard: DiagnosticClipboardWriting {
 final class SettingsModel {
     let store: SettingsStore
 
+    private(set) var isMenuBarExtraInserted: Bool
     private(set) var launchAtLoginStatus: LaunchAtLoginStatus = .disabled
     private(set) var notificationAuthorizationStatus: NotificationAuthorizationStatus = .notDetermined
     private(set) var diagnostics: CompatibilityDiagnosticsSnapshot?
@@ -39,6 +40,8 @@ final class SettingsModel {
         diagnosticClipboard: any DiagnosticClipboardWriting = SystemDiagnosticClipboard()
     ) {
         self.store = store
+        isMenuBarExtraInserted = AppRuntimeEnvironment.shouldInsertMenuBarExtraOnLaunch
+            && store.isMenuBarExtraRequested
         self.appModel = appModel
         self.notificationService = notificationService
         self.launchAtLoginController = launchAtLoginController
@@ -82,7 +85,19 @@ final class SettingsModel {
         }
     }
 
-    func setProvider(_ providerID: ProviderID, enabled: Bool) {
+    func setMenuBarExtraRequested(_ requested: Bool) {
+        store.setMenuBarExtraRequested(requested)
+        isMenuBarExtraInserted = requested
+    }
+
+    func menuBarExtraInsertionDidChange(_ isInserted: Bool) {
+        isMenuBarExtraInserted = isInserted
+    }
+
+    func setProvider(
+        _ providerID: ProviderID,
+        enabled: Bool
+    ) {
         guard store.isProviderEnabled(providerID) != enabled else { return }
         store.setProvider(providerID, enabled: enabled)
         appModel.providerPreferencesDidChange()

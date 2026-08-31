@@ -28,6 +28,7 @@ protocol AppPreferencesProviding: AnyObject, Sendable {
 @MainActor
 final class SettingsStore: AppPreferencesProviding {
     private enum Key {
+        static let menuBarExtraRequested = "presentation.menu-bar-extra.requested"
         static let codexEnabled = "providers.codex.enabled"
         static let claudeEnabled = "providers.claude.enabled"
         static let notificationsEnabled = "notifications.enabled"
@@ -40,6 +41,7 @@ final class SettingsStore: AppPreferencesProviding {
 
     private let defaults: UserDefaults
 
+    private(set) var isMenuBarExtraRequested: Bool
     private(set) var isCodexEnabled: Bool
     private(set) var isClaudeEnabled: Bool
     private(set) var areNotificationsEnabled: Bool
@@ -51,6 +53,11 @@ final class SettingsStore: AppPreferencesProviding {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+        isMenuBarExtraRequested = Self.bool(
+            defaults,
+            key: Key.menuBarExtraRequested,
+            defaultValue: true
+        )
         isCodexEnabled = Self.bool(defaults, key: Key.codexEnabled, defaultValue: true)
         isClaudeEnabled = Self.bool(defaults, key: Key.claudeEnabled, defaultValue: true)
         areNotificationsEnabled = Self.bool(defaults, key: Key.notificationsEnabled, defaultValue: true)
@@ -118,6 +125,14 @@ final class SettingsStore: AppPreferencesProviding {
             isClaudeEnabled = enabled
             defaults.set(enabled, forKey: Key.claudeEnabled)
         }
+    }
+
+    func setMenuBarExtraRequested(_ requested: Bool) {
+        isMenuBarExtraRequested = requested
+        defaults.set(requested, forKey: Key.menuBarExtraRequested)
+        // Removing the only MenuBarExtra can terminate the process immediately.
+        // Flush this presentation preference before that lifecycle transition.
+        defaults.synchronize()
     }
 
     func setNotificationsEnabled(_ enabled: Bool) {

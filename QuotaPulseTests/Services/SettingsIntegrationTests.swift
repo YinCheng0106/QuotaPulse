@@ -64,6 +64,55 @@ final class SettingsIntegrationTests: XCTestCase {
         XCTAssertTrue(model.launchAtLoginUpdateFailed)
     }
 
+    func testMenuBarRecoveryActionRequestsInsertion() {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        store.setMenuBarExtraRequested(false)
+        let model = SettingsModel(
+            store: store,
+            appModel: makeAppModel(),
+            notificationService: SettingsNotificationService(),
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+
+        model.setMenuBarExtraRequested(true)
+
+        XCTAssertTrue(store.isMenuBarExtraRequested)
+        XCTAssertTrue(model.isMenuBarExtraInserted)
+    }
+
+    func testRuntimeMenuBarRemovalDoesNotRewritePersistedUserIntent() {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let model = SettingsModel(
+            store: store,
+            appModel: makeAppModel(),
+            notificationService: SettingsNotificationService(),
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+
+        model.menuBarExtraInsertionDidChange(false)
+
+        XCTAssertFalse(model.isMenuBarExtraInserted)
+        XCTAssertTrue(store.isMenuBarExtraRequested)
+    }
+
+    func testExplicitMenuBarHidePersistsUserIntentAndRuntimeState() {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let model = SettingsModel(
+            store: store,
+            appModel: makeAppModel(),
+            notificationService: SettingsNotificationService(),
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+
+        model.setMenuBarExtraRequested(false)
+
+        XCTAssertFalse(model.isMenuBarExtraInserted)
+        XCTAssertFalse(store.isMenuBarExtraRequested)
+    }
+
     func testLaunchAtLoginMapsEveryKnownSystemStatus() {
         XCTAssertEqual(LaunchAtLoginController.map(.enabled), .enabled)
         XCTAssertEqual(LaunchAtLoginController.map(.notRegistered), .disabled)

@@ -471,6 +471,16 @@
         }
       }
     },
+    "If it does not appear after you show it, allow QuotaPulse in System Settings > Menu Bar." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "若要求顯示後仍未出現，請在「系統設定」→「選單列」中允許 QuotaPulse。"
+          }
+        }
+      }
+    },
     "In progress" : {
       "localizations" : {
         "zh-Hant" : {
@@ -864,6 +874,16 @@
         }
       }
     },
+    "Open Settings" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟設定"
+          }
+        }
+      }
+    },
     "Open or install ChatGPT or Codex, then refresh." : {
       "localizations" : {
         "zh-Hant" : {
@@ -966,6 +986,26 @@
     },
     "QuotaPulse" : {
       "shouldTranslate" : false
+    },
+    "QuotaPulse is currently hidden from the menu bar." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QuotaPulse 目前已從選單列隱藏。"
+          }
+        }
+      }
+    },
+    "QuotaPulse is hidden" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QuotaPulse 已隱藏"
+          }
+        }
+      }
     },
     "Refresh failed" : {
       "localizations" : {
@@ -1194,6 +1234,26 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設定"
+          }
+        }
+      }
+    },
+    "Show in Menu Bar" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示於選單列"
+          }
+        }
+      }
+    },
+    "Show QuotaPulse in Menu Bar" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在選單列顯示 QuotaPulse"
           }
         }
       }
