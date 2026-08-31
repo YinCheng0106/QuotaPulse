@@ -1,6 +1,6 @@
 # QuotaPulse 架構
 
-狀態：Milestone 1 實作基準、Codex provider core、Claude Code snapshot provider core、共用應用程式整合、v0.1 reset reminders、provider-agnostic 本機 reset detection，以及 production privacy-safe compatibility diagnostics，2026-08-30。Production `AppDependencies` 已透過 `UsageProvider` 接入兩個 adapters；SwiftUI previews 保持 mock-only。Claude opt-in status-line bridge 與外部 Reset Intelligence feed 尚未實作。
+狀態：Milestone 1 實作基準、Codex provider core、Claude Code snapshot provider core、共用應用程式整合、v0.1 reset reminders、provider-agnostic 本機 reset detection、production privacy-safe compatibility diagnostics，以及 provider visibility／disabled semantics，2026-08-31。Production `AppDependencies` 已透過 `UsageProvider` 接入兩個 adapters；SwiftUI previews 保持 mock-only。Claude opt-in status-line bridge 與外部 Reset Intelligence feed 尚未實作。
 
 ## 1. 目標與限制
 
@@ -193,25 +193,36 @@ Milestone 3 必須設計明確的設定與復原流程。QuotaPulse 不得靜默
 
 `AppModel` 是唯一的 refresh scheduling owner。它在 App 啟動時要求第一次刷新，並且最多只持有一個含 30 秒 tolerance 的 `ContinuousClock` sleeping task；menu view、`RefreshCoordinator`、`UsageService` 與 providers 都不建立週期 timer 或獨立 refresh loop。
 
+Provider eligibility 的 persisted source of truth 是 `SettingsStore`。`AppModel.enabledProviderIDs` 是同一份設定在 UI／lifecycle 層的記憶體投影，用來即時產生 `activeProviderStates`；它不是第二份 persistence。`UsageService` 在真正進入 adapter I/O 前再次讀取 `SettingsStore`，作為 process、RPC 與 snapshot read 的最終防線。Dashboard 只渲染 `activeProviderStates`，不在個別 SwiftUI subview 重複判斷 provider 類型。
+
 v0.1 固定政策：
 
-- 正常完成一輪刷新後，下一輪約在 15 分鐘後執行。
-- menu panel 出現時立即使用記憶體中的現有 `ProviderState`／snapshot；任一現有 snapshot 的 `capturedAt` 已超過約 3 分鐘，且距離上一輪讀取完成也至少 3 分鐘時，在背景要求刷新，不等待結果才顯示 UI。後者避免 source 本身過舊時，每次開選單都重新讀取。
-- 使用者按下 refresh 或 Command-R 時立即要求刷新；若已有手動或自動刷新進行中，沿用同一輪工作，不啟動重疊工作。
+- 正常完成一輪含 enabled provider 的刷新後，下一輪約在 15 分鐘後執行；全數停用時不建立 sleeping task，也不要求 provider work。
+- menu panel 出現時立即使用記憶體中的 enabled `ProviderState`／snapshot；任一 enabled snapshot 的 `capturedAt` 已超過約 3 分鐘，且距離上一輪讀取完成也至少 3 分鐘時，在背景要求刷新，不等待結果才顯示 UI。Disabled snapshot 不參與 stale 判斷。
+- 使用者按下 refresh 或 Command-R 時立即要求刷新所有 enabled providers；若已有手動或自動刷新進行中，沿用同一輪工作，不啟動重疊工作。Disabled provider 不參與 startup、scheduled、menu-open 或 manual refresh。
+- 重新啟用 provider 後會要求一次立即、共用且可合併的 refresh；若另一輪已在進行，`AppModel.providerIDsAwaitingRefresh` 以 provider-scoped `Set` 記錄需求，當該輪的通知評估也結束後恰好補一輪。相同 provider 的重複 enable signal 仍只產生一輪 follow-up，不重疊，也不產生第三輪。
 - 刷新開始時保留現有 snapshot 並顯示 refreshing；若同一 provider 最新刷新失敗，`AppModel` 保留上一份有效的記憶體內 snapshot，UI 同時顯示 stale／失敗提示與原始 `capturedAt`。這不建立磁碟 persistence 或 usage history。
 - 任一 provider 回傳可重試的 `.failed` 時，共用刷新週期依 1、2、5、15、30 分鐘退避，連續失敗最多 30 分鐘；下一輪沒有 `.failed` 就恢復 15 分鐘。menu open 不會繞過尚未到期的退避；明確手動刷新可以立即重試。`notInstalled`、`notConfigured` 與其他非暫時性 unavailable 狀態不啟動快速重試。此為全 App 共用退避，健康 provider 仍會隨每輪依序更新，不另建 provider timer。
 - system sleep 會取消唯一 sleeping task但保留 deadline；wake 時若 deadline 已過就要求一輪刷新，否則只重建一個剩餘時間 schedule。重複 wake 或 App activation 只會確認既有 schedule，不建立第二個 loop。
+
+下一輪 deadline 以 provider I/O 完成時間計算，但 sleeping task 只在該輪通知評估結束、`AppModel` 清除 in-flight refresh ownership 後才安裝。若通知評估跨過 deadline，會以零延遲要求下一輪，而不是讓 timer 在 refresh 尚未清除時觸發後被合併掉。
 
 工作合併分成刻意保留的防線，而不是多套排程：
 
 1. `AppModel` 合併所有 UI、menu、lifecycle 與 scheduled triggers，並發布 loading／完成狀態。
 2. `RefreshCoordinator` 只持有一個 in-flight refresh task，讓其他非 UI caller 也不能繞過合併；它不決定時間。
-3. `UsageService` actor 依序刷新 providers，逐一轉成獨立 `ProviderState`，單一 provider 失敗不會阻止後續 provider。
+3. `UsageService` actor 依 provider 順序重新檢查 enablement；disabled provider 直接產生 normalized `.disabled` state，不呼叫 `fetchUsage()`，其餘 providers 依序刷新。單一 provider 失敗不會阻止後續 provider。
 4. `CodexAppServerClient` actor 合併同一 provider 的重疊 RPC，健康時重用既有 app-server connection。
 
 普通 refresh 只在健康 connection 上送出新的 `account/rateLimits/read`，不做 executable discovery 或 process recreation。只有 connection 不存在或已失效時才進入 locator／reconnect；重連會先完整停止舊 connection，再探索並建立 replacement。因此 reconnect lifecycle 與正常 refresh cadence 保持分離。
 
 App termination 會取消 App-owned schedule／refresh，並要求 coordinator cancellation；Codex process boundary 仍以自己的同步 termination observer 保證 child cleanup。外部 process 一律維持 timeout、受限 stdout/stderr 與完整 termination cleanup。
+
+每輪 refresh 開始時，`AppModel` 會快照 eligible provider IDs 與各 provider 的 lifecycle generation，再把 frozen eligible set 傳入 `RefreshCoordinator`／`UsageService`。Provider 在本輪開始後才啟用時，不會中途加入本輪；它由上述單一 follow-up 處理。Provider 在本輪中途停用，或停用後又重新啟用時，即使既有 bounded adapter I/O 最後成功，generation 已改變，`AppModel` 也會丟棄該 provider 的結果，不恢復舊 presentation、cached snapshot 或通知資格。後續 follow-up 才能用目前 lifecycle 的 fresh data 建立狀態。
+
+`AppModel` 內三種 generation 各有單一用途：`refreshGeneration` 使整輪 refresh 的過期 completion 失效，`scheduleGeneration` 使已取消或被取代的 sleeping task 失效，provider lifecycle generation 則只判斷個別 provider 的 I/O 結果是否仍屬於目前 enablement lifecycle。前兩者是 process-local task token；第三者也是 process-local UI／refresh guard，不作為通知 request identity。
+
+若使用者在 adapter I/O 已開始後停用該 provider，本輪不額外加入 provider-specific 強制取消：既有 bounded operation 可安全完成；尚未進入 I/O 的 provider 則由 `UsageService` 在 adapter 邊界重新讀取 `SettingsStore` 並跳過。已存在且健康的 Codex app-server connection 可以保持 idle，但停用後的新 refresh 不會建立新 process 或送出新 RPC；若停用發生在 process launch 已開始之後，該次 launch 屬於既有 in-flight operation。這避免為設定開關新增另一套 cancellation ownership。
 
 畫面倒數使用一分鐘粒度的 `TimelineView(.periodic(from:by:))`，只以 `resetAt - context.date` 計算顯示文字。倒數 tick 不改寫 `AppModel`、不要求新 snapshot，也不會呼叫 provider、locator 或 app-server。不得發布全域一秒 tick，也不持久化持續變動的倒數值。
 
@@ -223,6 +234,7 @@ App termination 會取消 App-owned schedule／refresh，並要求 coordinator c
 
 `AppModel` 在 `UsageService` 完成本輪 refresh 並發布 UI state、排定既有下一輪 refresh 後，把該輪原始 `ProviderState` 交給 notification service。通知不讀取 UI 為失敗狀態保留的 cached snapshot。每個 window 必須同時符合：
 
+- provider 在評估當下仍由 `SettingsStore` 標示為 enabled
 - state 是本輪成功的 `.available`，snapshot 與 state 的 provider identity 相同
 - snapshot source 必須是 provider adapter 的真實來源；`.mock` 永遠不具通知資格
 - `capturedAt` 距評估時間不超過 15 分鐘；只容許最多 5 分鐘的未來 clock skew
@@ -255,13 +267,19 @@ v0.1 選擇 **在既有 refresh 後評估並立即提交一次性 local notifica
 - 舊 reset 已經過期後出現新的未來 reset，視為真正的新 window，該 duration class 的門檻重新 eligible
 - 若 provider 在舊 reset 已過後才宣告它其實往後移，無法與新 window 完全可靠區分；v0.1 保守地視為新 window，這是剩餘 edge case
 
-`UserDefaultsNotificationStateStore` 只保存 schema version、provider、window ID、分鐘化 reset identity／目前 reset、已完成 thresholds 與最後觀察分鐘，不保存通知文案、percentage、snapshot、provider payload 或憑證。既有以小時保存的 threshold metadata 會相容轉成分鐘，保留跨版本去重；舊格式 pending request 則會在首次通知評估時移除。相同 provider/window 的新 generation 會取代舊 generation，全域另設 32 entries 上限，encoded state 超過 64 KiB 時拒絕讀取，沒有無限成長的 history。
+`UserDefaultsNotificationStateStore` 只保存 schema version、provider、window ID、分鐘化 reset identity／目前 reset、已完成 thresholds 與最後觀察分鐘，不保存通知文案、percentage、snapshot、provider payload 或憑證。既有以小時保存的 threshold metadata 會相容轉成分鐘，保留跨版本去重；舊格式 pending request 則會在首次通知評估時移除。相同 provider/window 的新 generation 會取代舊 generation，全域另設 32 entries 上限，encoded state 超過 64 KiB 時拒絕讀取，沒有無限成長的 history。Provider notification lifecycle 另外只保存每個已知 `ProviderID` 的目前 `UInt64` generation；它是固定大小的 current-state counter，不保存歷史。
 
-Service 在提交 request 前先持久化 threshold claim，以 App restart 與重複 refresh 的「最多一次」語意優先；若系統在 claim 後拒絕 `add`，該單一 threshold 可能漏送，但不會重送。Process 內以 evaluation generation 與提交前重新讀取 state 防止兩次 async evaluation 在 authorization suspension point 重複提交。
+Service 在提交 request 前先持久化 threshold claim，以 App restart 與重複 refresh 的「最多一次」語意優先；若系統在 claim 後拒絕 `add`，該單一 threshold 可能漏送，但不會重送。Process 內以 evaluation generation 與提交前重新讀取 state 防止兩次 async evaluation 在 authorization suspension point 重複提交。這個 process-local evaluation generation 只淘汰重疊評估；persisted provider lifecycle generation 才保護跨 process 的 pending request identity 與 cleanup。兩者不能互換，也不與 `AppModel` 的 refresh／schedule generations 共用 ownership。
 
 ### 9.5 Stale data 與權限
 
 本輪 refresh 失敗、typed unavailable 或 snapshot 超過 15 分鐘時，不建立新通知、不改寫已完成 thresholds，也不移除其他有效 request；因 v0.1 沒有長期 future reset requests，stale refresh 通常沒有待取消項目。各 provider 分開評估與去重，一個 provider 狀態不影響另一個。
+
+停用 provider 時，`NotificationService` 只移除 identifier 屬於該 provider 的 pending `quotapulse.reset.*` 與 `quotapulse.reset-completed.*` requests，不移除其他 provider 或其他 App 的 request。停用後即使一輪 refresh 已在進行，也會依最新 `SettingsStore` 狀態拒絕 approaching-reset 與 completed-reset 通知。Reminder dedup state 繼續受既有 32 entries／64 KiB 上限約束，且不因 toggle 清空，避免反覆切換重送已 claim 的 approaching reminder。
+
+Provider enablement 的非同步 cleanup 由 `NotificationService` 擁有，而非 SwiftUI。每次 transition 都同步增加並保存該 provider 的 bounded lifecycle generation、更新 enabled state 並清除該 provider 的 reset-detector baseline；每個 provider 最多只有一個可合併的 cleanup task。Pending request identifier 在 provider prefix 後帶目前的 `lifecycle-N`，但 generation 不進入 reminder dedup 或 detector history。App 啟動時，service 會合併一次 pending-request reconciliation：disabled provider 的 request 全部移除；enabled provider 只保留 persisted current generation，沒有 lifecycle 或屬於舊 generation 的 request 都移除。Cleanup 取得 pending identifiers 後，必須在真正刪除前重新檢查目前 lifecycle：最終為 disabled 時刪除該 provider 全部 pending requests；最終為 enabled 時只刪除舊 generation，保留目前 generation。若 transition 發生於 `center.add` suspension 期間，提交後也會再次驗證 generation，並立即移除剛加入的 stale request。因此舊 cleanup、舊 evaluation 或 process restart 的完成順序都不能刪除或保留較新 lifecycle 的通知。
+
+Lifecycle state、cleanup task、request filtering 與 reset baseline 都以 `ProviderID` 分開保存。Codex 的 cleanup 不等待或刪除 Claude 的 pending request、snapshot、eligibility、dedup metadata 或 detector entries；系統沒有新增全域 provider transition queue。
 
 只有出現第一個 eligible decision 且 authorization status 是 `.notDetermined` 時才要求 `.alert`／`.sound` 權限。並行評估共用同一個 authorization request；權限等待結束後，service 只讓最新一輪評估繼續，並以等待後的時間重新檢查 freshness、reset 與 dedup state。這避免使用者停留在系統提示期間又完成更新時，舊 percentage 或已過期 reset 才被送出。
 
@@ -279,15 +297,29 @@ Service 在提交 request 前先持久化 threshold claim，以 App restart 與�
 
 單獨 percentage 下降不計為 reset。小於等於 2 分鐘的 reset timestamp 修正視為同一 cycle。Stale、out-of-order、malformed、mock 與暫時缺少 `resetAt` 的 snapshot 都不產生 reset；觀測間隔超過 2 小時時只重建 baseline，避免 app restart 或 provider reconnect 後猜測中間發生的事件。
 
+Provider 每次 enablement transition 都會移除該 provider 的 bounded detector entries。重新啟用後的第一份新鮮 snapshot 因而只建立 baseline，不得產生 completed-reset；第二份之後才依正常強證據規則判斷。這個 provider-scoped re-baseline 不刪除 provider 設定、notification reminder dedup，也不影響其他 provider 的 detector state。
+
 Completed-reset 通知以 provider 顯示名稱與 normalized window label/duration 產生在地化文案。去重 identity 是 `providerID + UsageWindow.id + cycleIdentifier`。Detector 在通知授權與提交前就把 cycle claim 以獨立 schema 保存，因此選擇 at-most-once：提交失敗可能漏送，但同一 cycle 不會因 restart 或重複 refresh 再送。狀態最多 32 個 provider/window entries、每個 identifier 最多 256 bytes，且 encoded payload 上限 64 KiB；不保存 usage history。
 
 ## 10. 設定
 
-v0.1 使用原生 `Settings` scene 與 `@MainActor SettingsStore`。`SettingsStore` 是 provider enablement、通知總開關，以及短視窗 1 小時／30 分鐘與長視窗 24／6／1 小時門檻的單一來源，並以 typed UserDefaults keys 保存；SwiftUI 只透過 `SettingsModel` 修改 store，再由 `UsageService` 與 `NotificationService` 讀取同一份狀態。短、長視窗的 1 小時選項彼此獨立，舊版共用 1 小時偏好會作為短視窗偏好的 migration 預設。`NotificationService` 關閉時不再建立提醒，並移除 QuotaPulse 自己的 pending reset requests；關閉單一門檻只移除相符 duration class 的門檻。
+v0.1 使用原生 `Settings` scene 與 `@MainActor SettingsStore`。`SettingsStore` 是 provider enablement、通知總開關，以及短視窗 1 小時／30 分鐘與長視窗 24／6／1 小時門檻的單一來源，並以 typed UserDefaults keys 保存；SwiftUI 只透過 `SettingsModel` 修改 store，再由 `UsageService` 與 `NotificationService` 讀取同一份狀態。Provider toggle 先同步通知 `NotificationService` 使舊 lifecycle 失效，再保存設定、更新 `AppModel` 投影，並於 enable 時要求共用 refresh。`SettingsModel.setProvider` 回傳 `Void`；View 只表達使用者意圖，不接收或 await cleanup task。Cleanup 可以非同步完成，因正確性由 service 的 provider generation 與 destructive-point validation 保證，不依賴 SwiftUI call site 記住實作細節。短、長視窗的 1 小時選項彼此獨立，舊版共用 1 小時偏好會作為短視窗偏好的 migration 預設。`NotificationService` 關閉時不再建立提醒，並移除 QuotaPulse 自己的 pending reset requests；關閉單一門檻只移除相符 duration class 的門檻。
 
 Launch at Login 使用 `ServiceManagement` 的 `SMAppService.mainApp`。Settings 每次顯示時重新讀取 system status；register／unregister 失敗時保留系統實際狀態並顯示安全錯誤，不把 UI toggle 當成成功依據。
 
-Provider 停用後，`UsageService` 仍保留 provider 順序與 normalized `.disabled` state，但跳過其 `fetchUsage()`；其他 providers 繼續依序刷新。重新啟用會要求一次共用 refresh，仍經 `RefreshCoordinator` 合併。健康 Codex app-server connection 不因設定開關反覆銷毀與重建。
+同一個 app target 以 build configuration 分開 macOS bundle identity：Release 保留 production `dev.quotapulse.app`，Debug 使用 `dev.quotapulse.development.app` 並以 `QuotaPulse Debug` 顯示。`PRODUCT_NAME`／executable 維持 `QuotaPulse`，不複製 target。由於 `SMAppService.mainApp`、`UserDefaults.standard`、`UNUserNotificationCenter.current()` 與 macOS 26 Control Center 的第三方 menu bar 狀態都以目前 app identity 為邊界，開發操作只會落在 Debug identity；兩者不共用 preferences，也沒有 App Group entitlement。Debug 因而有自己的首次啟動設定與通知授權，這是刻意隔離而非 migration。
+
+選單列呈現拆成兩種不同狀態。`SettingsStore.isMenuBarExtraRequested` 是 persisted user intent，新安裝預設為 `true`；`SettingsModel.isMenuBarExtraInserted` 是目前 process 的 session insertion state。`MenuBarExtra(isInserted:)` 只綁定 session state，因為 macOS 26 Control Center 在阻擋同 bundle 的重複 status-item hosts 時，也會把 binding 設為 `false`，這不是使用者意圖。System／Scene callback 因而不得直接寫入 UserDefaults；只有 Settings toggle 與 recovery action 可以保存 intent，明確隱藏時仍在 process 可能終止前同步提交。
+
+原生系統移除仍會把 session insertion 設為 `false`，QuotaPulse 不反覆插回，也不覆寫 Control Center 的 system-managed 狀態。若 persisted intent 為 `true`，但明確啟動後 system 在 startup 將 session state 改為 `false`，App 會顯示 recovery window；它只提供 Show／Settings／Quit，不自動改寫 intent 或建立 reinsertion loop。正常 Quit、Xcode Stop、Scene teardown 與 system blocked action 都不會把 persisted intent 轉成 hidden。
+
+`QuotaPulseTests` 是 app-hosted XCTest。完整 suite 可平行啟動多個 `QuotaPulse.app` test hosts，因此 XCTest 環境的 session insertion 初值固定為 `false`，且 delegate 不執行 production recovery。Tests 仍可載入 production types，但不要求顯示 status item，也不透過 Scene lifecycle 寫入 `dev.quotapulse.development.app`；直接測試 `SettingsStore` 的案例全部使用 UUID test suites 並在結束時移除 domain。
+
+下次啟動時，`MenuBarRecoveryPolicy` 結合 persisted requested state 與 launch source：requested 為 `true` 時先走一般路徑，並在 startup settling 後確認 session insertion；requested 為 `false` 且由使用者明確啟動時，App 以 SwiftUI-hosted `NSWindow` 顯示一次最小復原介面；requested 為 `false` 且 `kAEOpenApplication` Apple Event 含公開的 `keyAELaunchedAsLogInItem` 時則安靜退出。復原期間暫時把 `NSApplication.ActivationPolicy` 從 accessory 改為 regular，讓視窗與 Dock 可到達；復原視窗關閉後即恢復原 policy，不造成永久 Dock presence。按下「Show in Menu Bar」明確更新 persisted intent 與 session state，視窗會保留，讓 Control Center 阻擋時仍有可到達的說明與 Settings／Quit 動作。這個 AppKit bridge 是為保留 macOS 14 baseline；macOS 15 才提供 SwiftUI scene 的 `defaultLaunchBehavior(.suppressed)`。
+
+macOS 26 的 Control Center／「系統設定」→「選單列」仍可在 requested 為 `true` 時阻止實際顯示。QuotaPulse 不猜測該 system-managed allowance、不反覆切換 binding、不寫入 `group.com.apple.controlcenter` 或其他系統偏好，也不使用 private API。復原介面只誠實提示使用者必要時到系統設定允許 QuotaPulse；自動測試僅驗證 requested state 與 launch policy，不能宣稱驗證 Control Center 實際可見性。
+
+Provider 停用代表「暫時排除於 QuotaPulse 主動監看」，不是刪除 provider。`UsageService` 仍保留 provider 順序與 normalized `.disabled` state，但跳過其 `fetchUsage()`；Dashboard 不顯示 disabled placeholder，其他 providers 繼續依序刷新。全數停用時只顯示一個「No providers enabled」empty state 與原生 `SettingsLink`，Settings 的 toggles 仍可管理並跨 restart 保存。重新啟用不需重啟 App，也不刪除 provider configuration；它會先 re-baseline reset detector，再要求一次共用 refresh，仍經 `RefreshCoordinator` 合併。
 
 背景刷新維持固定約 15 分鐘。動態 interval 會介入已完成的 deadline、retry backoff、sleep/wake 與單一 scheduled task invariant；v0.1 不為 5／15／30 分鐘選項擴大該架構。Settings 只顯示目前固定 cadence。
 
@@ -339,7 +371,7 @@ protocol ResetEventSource: Sendable {
 
 `ResetEventKind` 明確區分 `scheduledResetObserved`、`globalResetAnnounced`、`globalResetCompleted` 與 `bankedResetGranted`。每個外部事件必須保留可點擊的原始 `sourceURL` 與 `sourceName`；display-safe summary 是補充資訊，不能被呈現成權威原文。目前不引入 confidence 分數，避免對未實作的 trust pipeline 過度建模。
 
-未來可為 `ResetEventSource` 實作小型 JSON feed client，但 fetch cadence、cache、network client 與 settings 必須與本機 usage adapters 及 refresh scheduler 分開。不得將 social-media credential 放入 App，不得在 App 內爬取 X/Twitter 或呼叫 AI model。遠端 request 不得含本機用量 snapshot、prompt、repository 資訊或程式開發歷史。詳細政策見 [docs/RESET_INTELLIGENCE.md](docs/RESET_INTELLIGENCE.md)。
+未來可為 `ResetEventSource` 實作小型 JSON feed client，但 fetch cadence、cache、network client 與 settings 必須與本機 usage adapters 及 refresh scheduler 分開。任何 future ResetEvent notification 在送出前仍必須套用同一份 provider enablement；disabled provider 不得產生外部事件通知。不得將 social-media credential 放入 App，不得在 App 內爬取 X/Twitter 或呼叫 AI model。遠端 request 不得含本機用量 snapshot、prompt、repository 資訊或程式開發歷史。詳細政策見 [docs/RESET_INTELLIGENCE.md](docs/RESET_INTELLIGENCE.md)。
 
 ## 13. Milestone 1 檔案結構
 
@@ -412,6 +444,8 @@ Milestone 1 自動測試涵蓋：
 - 啟動與 15 分鐘 scheduled refresh、3 分鐘 menu stale threshold、手動／自動重疊合併
 - 1／2／5／15／30 分鐘 failure backoff 與成功後恢復正常週期
 - 反覆 menu open、sleep／wake 與 App activation 不累積 refresh schedules
+- enabled／disabled Dashboard projection、全數停用單一 empty state，以及 Settings toggle 的同步可見性與 restart persistence
+- disabled provider 在 startup、scheduled background 與 manual refresh 都不進入 adapter I/O；重新啟用後可立即、非重疊地恢復共用 refresh
 - 倒數時間推進不讀取 provider
 - 以注入 service 驗證通知 action
 - Codex single/multi-bucket mapping、缺少 window 與不猜測 percentage
@@ -423,11 +457,14 @@ Milestone 1 自動測試涵蓋：
 - `AppModel` loading transition，以及全數 unavailable 時不虛構成功更新時間
 - provider presentation 的 available／loading／unavailable／not detected／not configured／refresh failure／cached failure／missing reset／stale／Claude experimental 狀態，以及 user-facing 文案不洩漏內部錯誤
 - 5 小時與 7 天 genuine reset transition、純 percentage 修正、stale/missing/out-of-order snapshot、provider 獨立性、同 cycle 去重與下一 cycle
-- completed-reset 通知在地化、同 process 最多一次，以及以 persisted state 驗證 app restart 不重複送出
+- completed-reset 通知在地化、同 process 最多一次，以及以 persisted state 驗證 app restart 不重複送出或產生 false reset
+- provider-scoped pending notification cleanup、disabled provider notification exclusion、disable／enable rapid-transition generation invalidation、persisted generation 的 restart reconciliation、cleanup task boundedness，以及重新啟用只建立 reset baseline、不誤送 completed-reset
+- refresh in-flight 時啟用 provider 的單一 follow-up、重複 enable signal 合併、停用時丟棄 stale completion，以及 provider 間互不影響
 - `ResetEvent` Codable round trip、原始 source URL 保留與事件種類可區分性
 - 最新刷新失敗時保留上一份有效的記憶體內 snapshot 與成功更新時間
 - compatibility diagnostics 的 healthy、runtime missing、disabled、connection failure、usage unavailable、last-refresh failure、provider independence 與 current-state bound
 - Copy Diagnostics allowlist 與刻意含 credential／prompt／session／email／private path／raw JSON 的 privacy regression fixtures
+- menu bar extra 新安裝預設、requested-state persistence、provider preference independence，以及 explicit／login-item launch recovery policy
 
 後續 provider 工作還需要測試 app-server request/response correlation、正式 Claude status-line fixtures、bridge atomic write 與 permissions、existing-command composition、settings migration，以及各支援版本與 authentication modes 的 live behavior。
 
@@ -446,5 +483,6 @@ Milestone 1 自動測試涵蓋：
 7. 依實際使用回饋確認目前 15 分鐘 presentation freshness label 門檻是否需要調整。
 8. 依 `docs/PERFORMANCE.md` 量測長駐健康 app-server、重複刷新與重連是否符合延遲、記憶體、CPU、file descriptor 與 task 目標。
 9. 承諾散布方式前，驗證 signing、hardened runtime 與 child-process 行為。
+10. macOS 26 Control Center 的 system-managed menu bar allowance 沒有公開查詢 API；正式散布 artifact 仍需以獨立 bundle identifier 驗證正常顯示、移除、明確重啟復原與 login-item quiet exit。
 
 這些都是明確的後續里程碑，不得藏在 provider implementation 裡當成已成立的假設。
