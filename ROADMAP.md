@@ -225,3 +225,17 @@ QuotaPulse 的主要定位是 **重視隱私的 AI coding 額度選單列工具*
 3. Gemini、OpenCode 或大規模 provider expansion。
 
 不採用 custom updater、credential／cookie access、transcript scanning、automatic provider rotation 或以 `xattr` 移除 quarantine 作為正式散布方案。
+
+## v0.2 規劃決策（2026-08-31）
+
+> 本節是在 v0.1.1 source-only 公開發行後作出的最新規劃，優先於上方較早的 post-v0.1 建議；歷史 v0.1 milestone 保留不改寫。
+
+v0.2 的主定位改為 **reset-aware AI coding quota assistant**，並維持隱私優先的本機額度視圖與可追溯來源作為兩項次要差異點。範圍只含三個工作流：
+
+1. Remaining／Used presentation、固定 pinned provider、以及 General／Providers／Notifications Settings 結構。
+2. 可略過、可重看的單頁 onboarding，重用既有 detection/diagnostics，不做 provider setup installer。
+3. 人工審核、GitHub-hosted static `ResetEvent` feed 的 ingestion；包含 source URL、publisher、publication/retrieval/effective time、verification、revision 與 correction/retraction，不做 collector、backend 或 AI 自動發布。
+
+local completed-reset notification、Diagnostics、disabled-provider lifecycle 與 MenuBar recovery 都已在 v0.1.1 完成，v0.2 只維持 regression/系統驗證，不能重新包裝成新功能。Claude 維持 Experimental / Unverified，直到有符合資格的實際帳號及可逆 bridge setup 的完整驗證。更新檢查、Sparkle、自動更新、Gemini/OpenCode provider、burn-rate/history/charts、AppKit secondary-click shell 與 binary distribution 全部不納入 v0.2。
+
+完整候選評估、架構、驗收條件與實作順序見 [`docs/V0_2_PLAN.md`](docs/V0_2_PLAN.md)。

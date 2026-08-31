@@ -76,31 +76,13 @@ Completed-reset 通知共用現有 notifications 總開關與 provider enablemen
 
 ## ResetEvent domain
 
-`ResetEvent` 是 provider-independent、`Codable` 且 `Sendable` 的 value type：
+`ResetEvent` 是 provider-independent、`Codable` 且 `Sendable` 的外部 event value type。v0.2 Milestone A 加入 stable `id`、monotonic `revision`、`publisher`、`retrievedAt`、`effectiveUntil`、verification，以及 correction/retraction relationship；typed kinds 包含 global announce/completed、banked reset、temporary increase、expected range、correction 和 retraction。完整 schema、bounds、forward-compatibility 及 editorial policy 以 [RESET_INTELLIGENCE_FEED.md](RESET_INTELLIGENCE_FEED.md) 為唯一契約來源。
 
-- `id`
-- `providerID`
-- `kind`
-- `publishedAt`
-- optional `effectiveAt` / `expiresAt`
-- `audience`
-- `sourceName`
-- required `sourceURL`
-- display-safe `displaySummary`
-- optional summary locale identifier
-
-`ResetEventKind` 區分：
-
-- `scheduledResetObserved`
-- `globalResetAnnounced`
-- `globalResetCompleted`
-- `bankedResetGranted`
-
-本機 `DetectedQuotaReset` 與官方 `ResetEvent` 刻意分開。前者是本機觀測，沒有外部原始公告；後者必須保留外部原始來源。不應為了共用型別而虛構一個 source URL。
+本機 `DetectedQuotaReset` 與官方 `ResetEvent` 刻意分開。前者是本機觀測，沒有外部原始公告；後者必須保留 publisher 與可點擊 source URL。不應為了共用型別而虛構來源。
 
 ## Future ResetEvent feed
 
-本階段只定義最小 abstraction：
+本階段只保留最小 abstraction：
 
 ```swift
 protocol ResetEventSource: Sendable {
@@ -108,7 +90,7 @@ protocol ResetEventSource: Sendable {
 }
 ```
 
-未來 production source 可取得小型 JSON feed，但需另行設計有上限的 cache、event dedup、更正／撤回語意、審查後 polling cadence 與 notification settings。它不呼叫 `UsageProvider`、不產生額外 Codex app-server process，也不與目前約 15 分鐘 provider refresh loop 耦合。
+Milestone A 已定義 JSON schema、hard bounds、event dedup、更正／撤回語意與 Settings opt-in contract；future production source 的 cache、ETag、reader、polling cadence 與 notification settings 仍未實作。它不呼叫 `UsageProvider`、不產生額外 Codex app-server process，也不與目前約 15 分鐘 provider refresh loop 耦合。
 
 ## Trusted-source policy
 

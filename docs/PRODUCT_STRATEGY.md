@@ -20,6 +20,8 @@ QuotaPulse 不應成為通用 AI dashboard。它最有機會建立的產品信�
 
 「最輕量」可以是工程成果，但不適合當唯一定位；同類產品也會宣稱 native／lightweight。「告訴你下一步怎麼做」目前缺乏可靠 pacing 證據。「Reset Intelligence」有差異化潛力，但外部 feed 尚未建立可信來源治理，不應現在就成為主品牌承諾。
 
+> 2026-08-31 更新：v0.1.1 已公開發行，且 completed-reset notification、production Diagnostics、disabled-provider semantics 與 MenuBar recovery 已實作。最新 v0.2 決策把可信 static feed 的第一階段 ingestion 列為範圍，但不代表 collector/backend/AI 自動發布已獲准；完整取代性決策見 [`V0_2_PLAN.md`](V0_2_PLAN.md)。
+
 ## 1. Current product health
 
 整體判斷：**架構與隱私邊界健康，日常可用性與安裝可信度仍是 early-stage。**

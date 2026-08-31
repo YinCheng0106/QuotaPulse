@@ -347,31 +347,25 @@ Diagnostics 沒有 timer、observer、filesystem watcher、sampler、telemetry�
 
 ## 12. Reset Intelligence domain 與未來 feed 邊界
 
-本機 quota reset detection 已實作；外部官方事件擷取仍是 **FUTURE**。Reset Intelligence 與 provider usage refresh 是獨立的資料路徑，不是 `UsageProvider` 的另一個 method。
+本機 quota reset detection 已實作；外部官方事件 reader 仍是 **FUTURE**。Milestone A 已凍結 versioned `ResetEventFeed` contract：每份完整 static snapshot 有 `schemaVersion`、absolute `generatedAt` 與不依 array order 的 events。每個 event 以 stable ID、單調 `revision`、provider、typed kind、publisher / source URL、published / retrieved / effective time、audience、verification、display-safe summary，以及 correction / retraction relationship 表示。`DetectedQuotaReset` 仍是本機觀測，永遠不能為了共用 model 而虛構 publisher 或 URL。
 
-```swift
-struct ResetEvent: Identifiable, Codable, Equatable, Sendable {
-    let id: String
-    let providerID: ProviderID
-    let kind: ResetEventKind
-    let publishedAt: Date
-    let effectiveAt: Date?
-    let expiresAt: Date?
-    let audience: ResetEventAudience
-    let sourceName: String
-    let sourceURL: URL
-    let displaySummary: String
-    let displaySummaryLocaleIdentifier: String?
-}
+未來資料流固定為：
 
-protocol ResetEventSource: Sendable {
-    func fetchEvents() async throws -> [ResetEvent]
-}
+```text
+Static trusted feed
+    -> ResetEventSource
+    -> ResetEventService (future; sole fetch/cache owner)
+    -> validated, bounded ResetEventFeed / ResetEvent
+    -> future presentation and local-only matching
 ```
 
-`ResetEventKind` 明確區分 `scheduledResetObserved`、`globalResetAnnounced`、`globalResetCompleted` 與 `bankedResetGranted`。每個外部事件必須保留可點擊的原始 `sourceURL` 與 `sourceName`；display-safe summary 是補充資訊，不能被呈現成權威原文。目前不引入 confidence 分數，避免對未實作的 trust pipeline 過度建模。
+此路徑獨立於 `UsageProvider`、`UsageService`、`RefreshCoordinator`、Codex app-server 與 Claude snapshot reader。future service 的 feed failure、cache miss 或 validation rejection 都不得阻礙本機 quota refresh，也不得產生新的 provider refresh、timer、polling loop 或 long-running task。v1 採 atomic rejection：future schema、unknown kind/provider、malformed timestamp/URL、duplicate ID、revision regression、超量 payload 或無效 relationship 全部拒絕候選 snapshot，保留 last-known-good state。沒有 per-event partial acceptance。
 
-未來可為 `ResetEventSource` 實作小型 JSON feed client，但 fetch cadence、cache、network client 與 settings 必須與本機 usage adapters 及 refresh scheduler 分開。任何 future ResetEvent notification 在送出前仍必須套用同一份 provider enablement；disabled provider 不得產生外部事件通知。不得將 social-media credential 放入 App，不得在 App 內爬取 X/Twitter 或呼叫 AI model。遠端 request 不得含本機用量 snapshot、prompt、repository 資訊或程式開發歷史。詳細政策見 [docs/RESET_INTELLIGENCE.md](docs/RESET_INTELLIGENCE.md)。
+Revision 更新以同 ID 的較高 revision 取代舊表示；`correction` / `retraction` 只可單層指向同 provider 的普通原始 event，避免 chain/cycle。未來 notification dedup 必須使用 event ID + revision，並另外定義已送出 history 的 correction/retraction policy。本階段不實作通知行為。
+
+`SettingsStore` 已保留純本機的 v0.2 contract：`remaining` / `used` presentation（預設 `remaining`）、optional pinned provider raw value、versioned onboarding state，以及 default-off Reset Intelligence opt-in。pin 的 persisted intent 不因 provider 暫時 unavailable / disabled 而改寫；未知 raw provider 值在舊 app 降級時保留、不渲染。General／Providers／Notifications 是後續唯一 Settings IA；UI 尚未拆分。
+
+不得將 social-media credential 放入 App，不得在 App 內爬取 X/Twitter 或呼叫 AI model。static feed 與未來 request 不得含本機 usage snapshot、prompt、repository、path、session、帳號或程式開發歷史。詳細 schema、governance、limits、migration 與 privacy policy 見 [docs/RESET_INTELLIGENCE_FEED.md](docs/RESET_INTELLIGENCE_FEED.md)。
 
 ## 13. Milestone 1 檔案結構
 
