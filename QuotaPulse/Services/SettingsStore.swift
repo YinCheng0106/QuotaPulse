@@ -18,6 +18,17 @@ struct NotificationPreferences: Equatable, Sendable {
     }
 }
 
+enum UsagePresentationMode: String, CaseIterable, Codable, Sendable {
+    case remaining
+    case used
+}
+
+enum OnboardingState: String, CaseIterable, Codable, Sendable {
+    case neverShown
+    case completed
+    case skipped
+}
+
 @MainActor
 protocol AppPreferencesProviding: AnyObject, Sendable {
     var notificationPreferences: NotificationPreferences { get }
@@ -37,9 +48,16 @@ final class SettingsStore: AppPreferencesProviding {
         static let reminder1HourEnabled = "notifications.reminder.1h.enabled"
         static let shortWindowReminder1HourEnabled = "notifications.short-window.reminder.1h.enabled"
         static let shortWindowReminder30MinutesEnabled = "notifications.short-window.reminder.30m.enabled"
+        static let usagePresentationMode = "presentation.usage.mode"
+        static let pinnedProvider = "presentation.menu-bar.pinned-provider"
+        static let onboardingState = "onboarding.state"
+        static let onboardingLastCompletedVersion = "onboarding.last-completed-version"
+        static let resetIntelligenceEnabled = "reset-intelligence.enabled"
     }
 
     private let defaults: UserDefaults
+
+    static let currentOnboardingVersion = 1
 
     private(set) var isMenuBarExtraRequested: Bool
     private(set) var isCodexEnabled: Bool
@@ -50,6 +68,12 @@ final class SettingsStore: AppPreferencesProviding {
     private(set) var is1HourReminderEnabled: Bool
     private(set) var isShortWindow1HourReminderEnabled: Bool
     private(set) var isShortWindow30MinuteReminderEnabled: Bool
+    private(set) var usagePresentationMode: UsagePresentationMode
+    /// The raw value is retained so an older app does not erase a newer provider pin.
+    private(set) var pinnedProviderRawValue: String?
+    private(set) var onboardingState: OnboardingState
+    private(set) var onboardingLastCompletedVersion: Int
+    private(set) var isResetIntelligenceEnabled: Bool
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
@@ -89,6 +113,17 @@ final class SettingsStore: AppPreferencesProviding {
             key: Key.shortWindowReminder30MinutesEnabled,
             defaultValue: true
         )
+        usagePresentationMode = Self.enumValue(
+            defaults,
+            key: Key.usagePresentationMode,
+            defaultValue: .remaining
+        )
+        pinnedProviderRawValue = defaults.string(forKey: Key.pinnedProvider)
+        onboardingState = Self.enumValue(defaults, key: Key.onboardingState, defaultValue: .neverShown)
+        onboardingLastCompletedVersion = defaults.object(forKey: Key.onboardingLastCompletedVersion) == nil
+            ? 0
+            : defaults.integer(forKey: Key.onboardingLastCompletedVersion)
+        isResetIntelligenceEnabled = Self.bool(defaults, key: Key.resetIntelligenceEnabled, defaultValue: false)
     }
 
     var notificationPreferences: NotificationPreferences {
@@ -135,6 +170,31 @@ final class SettingsStore: AppPreferencesProviding {
         defaults.synchronize()
     }
 
+    var pinnedProviderID: ProviderID? { pinnedProviderRawValue.flatMap(ProviderID.init(rawValue:)) }
+
+    func setUsagePresentationMode(_ mode: UsagePresentationMode) {
+        usagePresentationMode = mode
+        defaults.set(mode.rawValue, forKey: Key.usagePresentationMode)
+    }
+
+    func setPinnedProvider(_ providerID: ProviderID?) {
+        pinnedProviderRawValue = providerID?.rawValue
+        if let providerID { defaults.set(providerID.rawValue, forKey: Key.pinnedProvider) }
+        else { defaults.removeObject(forKey: Key.pinnedProvider) }
+    }
+
+    func setOnboardingState(_ state: OnboardingState) {
+        onboardingState = state
+        onboardingLastCompletedVersion = Self.currentOnboardingVersion
+        defaults.set(state.rawValue, forKey: Key.onboardingState)
+        defaults.set(onboardingLastCompletedVersion, forKey: Key.onboardingLastCompletedVersion)
+    }
+
+    func setResetIntelligenceEnabled(_ enabled: Bool) {
+        isResetIntelligenceEnabled = enabled
+        defaults.set(enabled, forKey: Key.resetIntelligenceEnabled)
+    }
+
     func setNotificationsEnabled(_ enabled: Bool) {
         areNotificationsEnabled = enabled
         defaults.set(enabled, forKey: Key.notificationsEnabled)
@@ -169,5 +229,16 @@ final class SettingsStore: AppPreferencesProviding {
     private static func bool(_ defaults: UserDefaults, key: String, defaultValue: Bool) -> Bool {
         guard defaults.object(forKey: key) != nil else { return defaultValue }
         return defaults.bool(forKey: key)
+    }
+
+    private static func enumValue<Value: RawRepresentable>(
+        _ defaults: UserDefaults,
+        key: String,
+        defaultValue: Value
+    ) -> Value where Value.RawValue == String {
+        guard let rawValue = defaults.string(forKey: key), let value = Value(rawValue: rawValue) else {
+            return defaultValue
+        }
+        return value
     }
 }

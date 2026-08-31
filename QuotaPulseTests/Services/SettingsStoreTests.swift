@@ -18,6 +18,10 @@ final class SettingsStoreTests: XCTestCase {
         first.setReminder(windowClass: .long, minutes: 24 * 60, enabled: false)
         first.setReminder(windowClass: .long, minutes: 6 * 60, enabled: false)
         first.setReminder(windowClass: .long, minutes: 60, enabled: false)
+        first.setUsagePresentationMode(.used)
+        first.setPinnedProvider(.claude)
+        first.setOnboardingState(.completed)
+        first.setResetIntelligenceEnabled(true)
 
         let recreated = SettingsStore(defaults: defaults)
 
@@ -27,6 +31,11 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertFalse(recreated.areNotificationsEnabled)
         XCTAssertEqual(recreated.notificationPreferences.thresholds(for: .short), [])
         XCTAssertEqual(recreated.notificationPreferences.thresholds(for: .long), [])
+        XCTAssertEqual(recreated.usagePresentationMode, .used)
+        XCTAssertEqual(recreated.pinnedProviderID, .claude)
+        XCTAssertEqual(recreated.onboardingState, .completed)
+        XCTAssertEqual(recreated.onboardingLastCompletedVersion, SettingsStore.currentOnboardingVersion)
+        XCTAssertTrue(recreated.isResetIntelligenceEnabled)
     }
 
     func testNewStoreUsesV01Defaults() {
@@ -44,6 +53,11 @@ final class SettingsStoreTests: XCTestCase {
             store.notificationPreferences.thresholds(for: .long),
             [24 * 60, 6 * 60, 60]
         )
+        XCTAssertEqual(store.usagePresentationMode, .remaining)
+        XCTAssertNil(store.pinnedProviderID)
+        XCTAssertEqual(store.onboardingState, .neverShown)
+        XCTAssertEqual(store.onboardingLastCompletedVersion, 0)
+        XCTAssertFalse(store.isResetIntelligenceEnabled)
     }
 
     func testMenuBarVisibilityPreferenceDoesNotModifyProviderEnablement() {
@@ -125,6 +139,58 @@ final class SettingsStoreTests: XCTestCase {
 
         XCTAssertTrue(recreated.isShortWindow1HourReminderEnabled)
         XCTAssertFalse(recreated.is1HourReminderEnabled)
+    }
+
+    func testUnknownPresentationModeFallsBackWithoutOverwritingStoredValue() {
+        let (defaults, suiteName) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set("future-mode", forKey: "presentation.usage.mode")
+
+        let store = SettingsStore(defaults: defaults)
+
+        XCTAssertEqual(store.usagePresentationMode, .remaining)
+        XCTAssertEqual(defaults.string(forKey: "presentation.usage.mode"), "future-mode")
+    }
+
+    func testDisabledOrUnavailableProviderDoesNotMutatePersistedPin() {
+        let (defaults, suiteName) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = SettingsStore(defaults: defaults)
+        store.setPinnedProvider(.codex)
+
+        store.setProvider(.codex, enabled: false)
+
+        XCTAssertEqual(store.pinnedProviderID, .codex)
+        XCTAssertEqual(defaults.string(forKey: "presentation.menu-bar.pinned-provider"), "codex")
+    }
+
+    func testUnknownPinnedProviderIsNotRenderedOrErasedByOlderApp() {
+        let (defaults, suiteName) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        defaults.set("future-provider", forKey: "presentation.menu-bar.pinned-provider")
+
+        let store = SettingsStore(defaults: defaults)
+
+        XCTAssertNil(store.pinnedProviderID)
+        XCTAssertEqual(store.pinnedProviderRawValue, "future-provider")
+        XCTAssertEqual(defaults.string(forKey: "presentation.menu-bar.pinned-provider"), "future-provider")
+    }
+
+    func testOnboardingCompletionAndSkipDoNotResetOtherPreferences() {
+        let (defaults, suiteName) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = SettingsStore(defaults: defaults)
+        store.setProvider(.claude, enabled: false)
+        store.setUsagePresentationMode(.used)
+        store.setPinnedProvider(.codex)
+
+        store.setOnboardingState(.skipped)
+        store.setOnboardingState(.completed)
+
+        XCTAssertFalse(store.isClaudeEnabled)
+        XCTAssertEqual(store.usagePresentationMode, .used)
+        XCTAssertEqual(store.pinnedProviderID, .codex)
+        XCTAssertEqual(store.onboardingState, .completed)
     }
 
     private func makeDefaults() -> (UserDefaults, String) {
