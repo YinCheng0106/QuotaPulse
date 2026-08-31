@@ -13,6 +13,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Provider-independent `ResetEvent` and future `ResetEventSource` domain boundaries.
 - Privacy-safe compatibility diagnostics and an allowlisted English report for GitHub issues.
 
+## [0.1.1] - 2026-08-31
+
+### Fixed
+
+- Improved recovery when QuotaPulse has been hidden from the macOS menu bar.
+- Fixed provider enable/disable lifecycle races that could affect pending reset notifications.
+- Fixed stale provider refresh results being applied after provider eligibility changes.
+- Fixed notification lifecycle handling across application restarts.
+- Fixed a refresh scheduling edge case when notification evaluation overlaps a refresh deadline.
+
+### Changed
+
+- Disabled providers are omitted from the Dashboard and background provider work.
+- Improved development/runtime identity isolation.
+
 ## [0.1.0] - 2026-08-28
 
 ### Added

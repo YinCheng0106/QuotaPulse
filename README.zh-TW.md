@@ -37,7 +37,7 @@ ChatGPT.app 支援依賴未文件化的封裝細節：內附 Codex runtime 的�
 
 ### 下載建置版本
 
-最初的 v0.1.0 GitHub Release 為 source-only，不會附上已核准的 QuotaPulse App、DMG 或安裝套件。
+v0.1.1 GitHub Release 為 source-only，不會附上已核准的 QuotaPulse App、DMG 或安裝套件。
 
 Developer ID 簽章、Hardened Runtime 驗證、notarization 與 binary distribution 檢查都刻意延後。自訂 Homebrew Tap 也只是可能的後續安裝方式，目前沒有官方 Homebrew Cask。
 
@@ -115,7 +115,7 @@ QuotaPulse 優先採用事件驅動更新、保守的刷新週期、有上限的
 - 已在 Apple silicon 驗證；Intel Mac 尚未驗證
 - ChatGPT.app Codex runtime 探索依賴未文件化的 bundle 路徑
 - Claude Code 支援為 Experimental / Unverified
-- 最初的 v0.1.0 為 source-only release；可下載 binary 的散布驗證尚未完成
+- v0.1.1 為 source-only release；可下載 binary 的散布驗證尚未完成
 - 沒有用量歷史與雲端同步
 - 沒有 iPhone App
 - 尚未實作官方外部 Reset Intelligence feed 擷取

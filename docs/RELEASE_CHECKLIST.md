@@ -1,12 +1,12 @@
-# QuotaPulse v0.1.0 Release Checklist
+# QuotaPulse v0.1.1 Release Checklist
 
-Last audited: 2026-08-29
+Last audited: 2026-08-31
 
 Status labels:
 
 - **AUTO** — completed by an automated or command-line check during the release-readiness audit
 - **MANUAL** — requires a person to verify the installed or distributed app
-- **BLOCKED** — must be resolved before a public v0.1.0 release
+- **BLOCKED** — must be resolved before a public v0.1.1 release
 - **DEFERRED** — intentionally postponed and must remain documented as a limitation
 - **OPTIONAL** — additional confidence work that does not block the current release candidate
 
@@ -15,12 +15,12 @@ Status labels:
 - [x] **AUTO** Clean Debug build succeeds with Xcode 26.6 on macOS 26.6.2.
 - [x] **AUTO** Clean Release build succeeds with Xcode 26.6 on macOS 26.6.2.
 - [x] **AUTO** No compiler, linker, or production localization warnings are emitted by either clean build.
-- [x] **AUTO** Built Info.plist contains `CFBundleIdentifier=dev.quotapulse.app`, version `0.1.0`, build `1`, `LSUIElement=true`, and minimum macOS `14.0`.
+- [x] **AUTO** Built Debug Info.plist contains `CFBundleIdentifier=dev.quotapulse.development.app`, display name `QuotaPulse Debug`, version `0.1.1`, build `1`, `LSUIElement=true`, and minimum macOS `14.0`; Release contains `CFBundleIdentifier=dev.quotapulse.app`, display name `QuotaPulse`, version `0.1.1`, and build `1`.
 
 ## Tests
 
-- [x] **AUTO** Complete suite passes: 159 passed, 0 failed, 1 explicitly opt-in live-notification test skipped in the normal run.
-- [x] **AUTO** The opt-in live system notification test passes separately and removes its delivered test notification.
+- [x] **AUTO** Complete suite passes: 235 passed, 0 failed, 2 explicitly opt-in live tests skipped in the normal run (Codex provider and system notification).
+- [ ] **OPTIONAL** Run the opt-in live Codex provider and system notification tests separately when their required local conditions are available.
 - [x] **AUTO** Process timeout, cancellation, reconnect, reap, pipe cleanup, refresh coalescing, notification deduplication, settings migration, and provider isolation tests pass.
 
 ## Runtime
@@ -40,7 +40,7 @@ Status labels:
 ## Notifications
 
 - [x] **AUTO** Authorization, denied permission, stale data, reset generation, threshold mapping, short/weekly windows, cancellation, persistence bounds, localization, and deduplication tests pass.
-- [x] **AUTO** A real local test notification was scheduled, delivered, verified, and removed through the opt-in system test.
+- [ ] **OPTIONAL** Verify a real local notification is scheduled, delivered, and removed through the opt-in system test.
 - [x] **AUTO** Development-only notification controls are excluded from Release.
 - [ ] **MANUAL** Confirm the exact downloadable app, if provided, requests permission and presents a banner/sound on a clean macOS user profile.
 
@@ -72,7 +72,7 @@ Status labels:
 - [ ] **DEFERRED** Verify the signed artifact has no `com.apple.security.get-task-allow` entitlement.
 - [ ] **DEFERRED** Submit for notarization, staple the ticket, and verify with Gatekeeper on a clean Mac.
 - [x] **AUTO** No App Sandbox entitlement is present; this matches the documented direct-distribution assumption and local provider access model.
-- [x] **AUTO** README and release notes identify the initial v0.1.0 release as source-only and do not offer an unverified binary download.
+- [x] **AUTO** README and release notes identify v0.1.1 as source-only and do not offer an unverified binary download.
 
 ## Repository
 
@@ -87,7 +87,7 @@ Status labels:
 
 - [x] **AUTO** README describes the current v0.1 scope, keeps Claude Code explicitly Experimental/Unverified, and documents deferred distribution work.
 - [x] **AUTO** Added minimal `CONTRIBUTING.md`, `SECURITY.md`, and `CHANGELOG.md`.
-- [x] **AUTO** Added concise draft GitHub release notes under `docs/RELEASE_NOTES_v0.1.0.md`.
+- [x] **AUTO** Added concise draft GitHub release notes under `docs/RELEASE_NOTES_v0.1.1.md`.
 - [x] **AUTO** Known architecture and provider limitations remain documented without implying Claude subscribed-account validation.
 - [x] **AUTO** GitHub Private Vulnerability Reporting is enabled and the public repository exposes **Report a vulnerability**.
 - [ ] **DEFERRED** Add real README screenshots later; the current README uses a textual placeholder and has no broken image links.
@@ -105,8 +105,8 @@ Status labels:
 ## Release
 
 - [ ] **MANUAL** Resolve the GitHub repository naming mismatch and re-check the public clone URL.
-- [x] **MANUAL** Reviewed the final diff; it contains only public release documentation and repository-guidance updates.
-- [x] **AUTO** The initial v0.1.0 release is source-only; no app bundle, DMG, package, or checksum is approved for attachment.
+- [x] **MANUAL** Reviewed the final diff; it contains release documentation, roadmap/checklist consistency updates, and v0.1.1 version metadata only.
+- [x] **AUTO** v0.1.1 is source-only; no app bundle, DMG, package, or checksum is approved for attachment.
 - [ ] **DEFERRED** Before any future binary release, archive and smoke-test the exact artifact, validate signing/notarization and Gatekeeper behavior, and produce a checksum.
 - [ ] **MANUAL** Replace `Unreleased` in `CHANGELOG.md` with the release date.
-- [ ] **MANUAL** Create the `v0.1.0` tag and publish the release only after explicit maintainer approval.
+- [ ] **MANUAL** Create the `v0.1.1` tag and publish the release only after explicit maintainer approval.

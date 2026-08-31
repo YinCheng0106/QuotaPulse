@@ -105,6 +105,8 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 - 已在啟動時刷新；選單顯示且 snapshot 超過約 3 分鐘時非阻塞刷新；使用者手動要求時立即刷新
 - 已由 `AppModel` 單一擁有約 15 分鐘背景 schedule，並以 1／2／5／15／30 分鐘處理暫時性失敗
 - 已處理 sleep/wake、App activation 與反覆 menu open，不建立重複 refresh loops
+- 已讓 disabled provider 從 Dashboard、啟動、手動與背景 refresh 排程中排除；重新啟用會安全地併入下一輪刷新
+- 已加入選單列被隱藏時的明確復原入口；實際選單列可見性仍由 macOS 控制
 - 已從本輪成功且新鮮的本機 snapshot 依 `UsageWindow.duration` 建立門檻通知：6 小時以下使用 1 小時／30 分鐘，長視窗使用不超過視窗長度的 24／6／1 小時門檻；不從 stale cached data 建立新通知
 - 已以 provider／window／logical reset generation／threshold 去除重複通知，並以最多 32 筆 metadata 保持 persistence bounded
 - 已加入原生 Settings：`SMAppService` Launch at Login、Codex／Claude enablement、通知總開關，以及分組的短視窗 1 小時／30 分鐘與長視窗 24／6／1 小時門檻
@@ -122,14 +124,14 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 
 ## Milestone 5 — v0.1 發行準備
 
-狀態：release-readiness audit、MIT License、初始 Git baseline 與 Production App Icon 已完成；目前準備公開 GitHub v0.1.0。Developer ID 與 notarization 依本次發行決策刻意延後，必須持續清楚標示為限制，不得宣稱已完成。
+狀態：release-readiness audit、MIT License、初始 Git baseline 與 Production App Icon 已完成；目前準備公開 source-only GitHub v0.1.1 patch release。Developer ID 與 notarization 依本次發行決策刻意延後，必須持續清楚標示為限制，不得宣稱已完成。
 
 - 已選擇並加入 MIT License
 - 已補齊貢獻、安全性、隱私、建置、發行與 draft release notes 文件
 - 已完成自動化 release audit、runtime lifecycle 稽核與約一小時開發環境效能觀察
 - 已確認公開文件把 Claude Code 維持為 Experimental／Unverified
 - 已啟用 GitHub Private Vulnerability Reporting
-- 最初的 v0.1.0 採 source-only GitHub Release，不附可下載 App、DMG 或安裝套件
+- v0.1.1 採 source-only GitHub Release，不附可下載 App、DMG 或安裝套件
 - README 的實際畫面截圖刻意延後，且目前不連結可能損壞的 placeholder 圖片
 - Production App Icon 已完成資產整合、各尺寸檢查與乾淨 Debug／Release 建置驗證
 - Developer ID signing、Hardened Runtime、notarization 與正式散布驗證延後處理

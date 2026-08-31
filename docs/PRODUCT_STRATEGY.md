@@ -1,7 +1,7 @@
 # QuotaPulse post-v0.1 產品與技術策略
 
-> 稽核日期：2026-08-30  
-> 範圍：目前工作樹中的產品、架構、測試、文件，以及公開競品與 macOS 發佈方案  
+> 稽核日期：2026-08-30
+> 範圍：目前工作樹中的產品、架構、測試、文件，以及公開競品與 macOS 發佈方案
 > 性質：規劃文件，不代表未完成項目已實作或已驗證
 
 ## Executive decision
@@ -10,7 +10,7 @@ QuotaPulse 不應成為通用 AI dashboard。它最有機會建立的產品信�
 
 建議的主要定位是：
 
-> **The privacy-first AI coding quota menu bar.**  
+> **The privacy-first AI coding quota menu bar.**
 > **重視隱私的 AI coding 額度選單列工具。**
 
 最多保留兩個次要差異點：

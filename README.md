@@ -37,7 +37,7 @@ ChatGPT.app support relies on an undocumented packaging detail: the bundled Code
 
 ### Downloaded builds
 
-The initial v0.1.0 GitHub release is source-only. No downloadable QuotaPulse app, DMG, or package is approved for that release.
+The v0.1.1 GitHub release is source-only. No downloadable QuotaPulse app, DMG, or package is approved for that release.
 
 Developer ID signing, Hardened Runtime validation, notarization, and binary-distribution checks are intentionally deferred. A custom Homebrew Tap is also only a possible future installation method; no official Homebrew Cask is available today.
 
@@ -115,7 +115,7 @@ Do not attach raw app-server output, Codex session files, authentication files, 
 - Validated on Apple silicon; Intel Macs are not yet validated
 - ChatGPT.app Codex runtime discovery depends on an undocumented bundle path
 - Claude Code support is Experimental / Unverified
-- The initial v0.1.0 release is source-only; downloadable binary distribution is not yet validated
+- v0.1.1 is source-only; downloadable binary distribution is not yet validated
 - No usage history or cloud sync
 - No iPhone app
 - Official external Reset Intelligence feed ingestion is not implemented
