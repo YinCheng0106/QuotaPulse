@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-01-18T12:00:00Z",
+  "events": [
+    {
+      "id": "codex.plan-reset-2026-01",
+      "revision": 1,
+      "providerID": "codex",
+      "kind": "bankedResetGranted",
+      "publisher": "OpenAI Help",
+      "sourceURL": "https://help.openai.example/plan-reset-2026-01",
+      "publishedAt": "2026-01-18T09:00:00Z",
+      "retrievedAt": "2026-01-18T10:00:00Z",
+      "audience": {
+        "kind": "planFamilies",
+        "planFamilies": ["pro", "business"]
+      },
+      "verification": "official",
+      "displaySummary": "Availability is limited to documented plan families."
+    }
+  ]
+}

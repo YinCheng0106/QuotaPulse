@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-01-19T12:00:00Z",
+  "events": [
+    {
+      "id": "codex.global-reset-2026-02",
+      "revision": 1,
+      "providerID": "codex",
+      "kind": "globalResetCompleted",
+      "publisher": "OpenAI Status",
+      "sourceURL": "https://status.openai.example/reset-2026-02",
+      "publishedAt": "2026-01-19T09:00:00Z",
+      "retrievedAt": "2026-01-19T10:00:00Z",
+      "audience": { "kind": "allUsers" },
+      "verification": "official",
+      "displaySummary": "Codex reset completed."
+    },
+    {
+      "id": "claude.global-reset-2026-02",
+      "revision": 1,
+      "providerID": "claude",
+      "kind": "globalResetCompleted",
+      "publisher": "Anthropic Status",
+      "sourceURL": "https://status.anthropic.example/reset-2026-02",
+      "publishedAt": "2026-01-19T09:00:00Z",
+      "retrievedAt": "2026-01-19T10:00:00Z",
+      "audience": { "kind": "allUsers" },
+      "verification": "official",
+      "displaySummary": "Claude reset completed."
+    }
+  ]
+}

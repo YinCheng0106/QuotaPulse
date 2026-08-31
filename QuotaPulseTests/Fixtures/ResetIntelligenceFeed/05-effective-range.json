@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-01-14T12:00:00Z",
+  "events": [
+    {
+      "id": "codex.expected-reset-2026-01",
+      "revision": 1,
+      "providerID": "codex",
+      "kind": "resetExpected",
+      "publisher": "OpenAI Status",
+      "sourceURL": "https://status.openai.example/expected-reset-2026-01",
+      "publishedAt": "2026-01-14T09:00:00Z",
+      "retrievedAt": "2026-01-14T10:00:00Z",
+      "effectiveAt": "2026-01-14T12:00:00Z",
+      "effectiveUntil": "2026-01-14T14:00:00Z",
+      "audience": { "kind": "unspecified" },
+      "verification": "official",
+      "displaySummary": "A reset is expected during the stated time range."
+    }
+  ]
+}
