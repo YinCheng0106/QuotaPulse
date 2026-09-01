@@ -15,10 +15,10 @@ Coding-agent limits often reset on different schedules. QuotaPulse keeps the cur
 ## Features
 
 - Native Swift and SwiftUI macOS menu bar app
-- Codex usage and remaining percentages
+- Configurable Remaining / Used quota presentation in Dashboard and menu bar
 - Reset times and minute-level countdowns
 - Local reset reminders through macOS notifications
-- Compact Settings for Launch at Login, provider enablement, and reminder thresholds
+- Compact General / Providers / Notifications settings, including pinned menu bar provider
 - Privacy-safe compatibility diagnostics with a copyable GitHub issue report
 - English and Traditional Chinese localization
 - Conservative refresh scheduling designed for lightweight long-running use
