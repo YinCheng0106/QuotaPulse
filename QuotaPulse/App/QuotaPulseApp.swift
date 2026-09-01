@@ -25,8 +25,20 @@ struct QuotaPulseApp: App {
         }
         .menuBarExtraStyle(.window)
 
+        // Apple may terminate an LSUIElement app whose only MenuBarExtra is removed.
+        // Keep a non-menu-bar scene in the app lifecycle; AppKit presents recovery on demand.
+        menuBarRecoveryScene
+
         Settings {
             SettingsView(model: runtime.settingsModel, appModel: runtime.appModel)
         }
+    }
+
+    private var menuBarRecoveryScene: some Scene {
+        WindowGroup("QuotaPulse is hidden", id: MenuBarRecoveryPolicy.windowID) {
+            MenuBarRecoveryScene(model: runtime.settingsModel)
+        }
+        .windowResizability(.contentSize)
+        .commandsRemoved()
     }
 }

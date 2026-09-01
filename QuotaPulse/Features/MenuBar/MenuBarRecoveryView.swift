@@ -4,6 +4,7 @@ import SwiftUI
 struct MenuBarRecoveryView: View {
     let model: SettingsModel
     let showInMenuBar: @MainActor () -> Void
+    let insertionRestored: @MainActor () -> Void
     let quit: @MainActor () -> Void
 
     var body: some View {
@@ -46,6 +47,63 @@ struct MenuBarRecoveryView: View {
         }
         .padding(24)
         .frame(width: 430)
+        .onChange(of: model.isMenuBarExtraInserted) { _, isInserted in
+            if isInserted {
+                insertionRestored()
+            }
+        }
+    }
+}
+
+struct MenuBarRecoveryScene: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let model: SettingsModel
+
+    @State private var previousActivationPolicy: NSApplication.ActivationPolicy?
+
+    var body: some View {
+        if AppRuntimeEnvironment.isRunningTests {
+            EmptyView()
+        } else {
+            MenuBarRecoveryView(
+                model: model,
+                showInMenuBar: {
+                    model.setMenuBarExtraRequested(true)
+                },
+                insertionRestored: {
+                    dismiss()
+                },
+                quit: {
+                    NSApplication.shared.terminate(nil)
+                }
+            )
+            .onAppear {
+                beginRecoveryPresentation()
+            }
+            .onDisappear {
+                endRecoveryPresentation()
+            }
+        }
+    }
+
+    private func beginRecoveryPresentation() {
+        guard previousActivationPolicy == nil else { return }
+        let application = NSApplication.shared
+        previousActivationPolicy = application.activationPolicy()
+        if application.activationPolicy() != .regular {
+            application.setActivationPolicy(.regular)
+        }
+        application.activate()
+    }
+
+    private func endRecoveryPresentation() {
+        guard let previousActivationPolicy else { return }
+        let application = NSApplication.shared
+        if application.activationPolicy() != previousActivationPolicy {
+            application.setActivationPolicy(previousActivationPolicy)
+        }
+        self.previousActivationPolicy = nil
     }
 }
 
@@ -69,12 +127,26 @@ final class QuotaPulseApplicationDelegate: NSObject, NSApplicationDelegate, NSWi
 
         switch disposition {
         case .normal:
-            scheduleBlockedLaunchRecovery(settingsModel: settingsModel)
+            break
         case .recovery:
             showRecoveryWindow(settingsModel: settingsModel)
         case .quietExit:
             NSApplication.shared.terminate(nil)
         }
+    }
+
+    func applicationShouldHandleReopen(
+        _ sender: NSApplication,
+        hasVisibleWindows: Bool
+    ) -> Bool {
+        guard let settingsModel else { return false }
+        guard MenuBarRecoveryPolicy.shouldPresentRecoveryOnReopen(
+            isMenuBarExtraInserted: settingsModel.isMenuBarExtraInserted
+        ) else {
+            return false
+        }
+        showRecoveryWindow(settingsModel: settingsModel)
+        return false
     }
 
     func windowWillClose(_ notification: Notification) {
@@ -86,28 +158,20 @@ final class QuotaPulseApplicationDelegate: NSObject, NSApplicationDelegate, NSWi
         }
     }
 
-    private func scheduleBlockedLaunchRecovery(settingsModel: SettingsModel) {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self, weak settingsModel] in
-            guard
-                let self,
-                let settingsModel,
-                settingsModel.store.isMenuBarExtraRequested,
-                !settingsModel.isMenuBarExtraInserted
-            else {
-                return
-            }
-            self.showRecoveryWindow(settingsModel: settingsModel)
-        }
-    }
-
     private func showRecoveryWindow(settingsModel: SettingsModel) {
-        guard recoveryWindowController == nil else { return }
+        guard recoveryWindowController == nil else {
+            recoveryWindowController?.window?.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate()
+            return
+        }
         beginRecoveryPresentation()
         let rootView = MenuBarRecoveryView(
             model: settingsModel,
-            showInMenuBar: { [weak self] in
+            showInMenuBar: {
                 settingsModel.setMenuBarExtraRequested(true)
-                self?.recoveryWindowController?.window?.makeKeyAndOrderFront(nil)
+            },
+            insertionRestored: { [weak self] in
+                self?.recoveryWindowController?.close()
             },
             quit: {
                 NSApplication.shared.terminate(nil)
@@ -161,6 +225,7 @@ final class QuotaPulseApplicationDelegate: NSObject, NSApplicationDelegate, NSWi
             launchAtLoginController: PreviewMenuBarRecoveryLaunchAtLoginController()
         ),
         showInMenuBar: {},
+        insertionRestored: {},
         quit: {}
     )
 }

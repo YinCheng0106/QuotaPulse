@@ -34,6 +34,29 @@ final class MenuBarRecoveryPolicyTests: XCTestCase {
         )
     }
 
+    func testRequestedExtraUsesNormalPathForLoginItemLaunch() {
+        XCTAssertEqual(
+            MenuBarRecoveryPolicy.disposition(
+                isMenuBarExtraRequested: true,
+                launchSource: .loginItem
+            ),
+            .normal
+        )
+    }
+
+    func testExplicitReopenPresentsRecoveryOnlyWhileRuntimeInsertionIsFalse() {
+        XCTAssertTrue(
+            MenuBarRecoveryPolicy.shouldPresentRecoveryOnReopen(
+                isMenuBarExtraInserted: false
+            )
+        )
+        XCTAssertFalse(
+            MenuBarRecoveryPolicy.shouldPresentRecoveryOnReopen(
+                isMenuBarExtraInserted: true
+            )
+        )
+    }
+
     @MainActor
     func testLaunchSourceDetectorRecognizesPublicLoginItemMarker() {
         let event = makeOpenApplicationEvent()
