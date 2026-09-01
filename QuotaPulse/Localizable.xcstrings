@@ -114,6 +114,16 @@
         }
       }
     },
+    "Automatic" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動"
+          }
+        }
+      }
+    },
     "Availability" : {
       "localizations" : {
         "zh-Hant" : {
@@ -144,6 +154,19 @@
         }
       }
     },
+    "Claude Code" : {
+
+    },
+    "Claude Code (Disabled)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code（已停用）"
+          }
+        }
+      }
+    },
     "Claude Code (Experimental, Unverified)" : {
       "localizations" : {
         "zh-Hant" : {
@@ -164,8 +187,28 @@
         }
       }
     },
+    "Claude Code remains Experimental and Unverified. QuotaPulse does not install or configure its bridge." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Claude Code 仍為實驗性且尚未驗證。QuotaPulse 不會安裝或設定其 bridge。"
+          }
+        }
+      }
+    },
     "Codex" : {
       "shouldTranslate" : false
+    },
+    "Codex (Disabled)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Codex（已停用）"
+          }
+        }
+      }
     },
     "Codex runtime not detected" : {
       "localizations" : {
@@ -291,6 +334,16 @@
         }
       }
     },
+    "Display" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示方式"
+          }
+        }
+      }
+    },
     "duration.1-hour" : {
       "localizations" : {
         "en" : {
@@ -371,22 +424,22 @@
         }
       }
     },
-    "Enable reset notifications" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "啟用重置提醒"
-          }
-        }
-      }
-    },
     "Enable a provider in Settings to start monitoring usage." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "請在「設定」中啟用提供者，以開始監看使用量。"
+          }
+        }
+      }
+    },
+    "Enable reset notifications" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "啟用重置提醒"
           }
         }
       }
@@ -562,6 +615,26 @@
         }
       }
     },
+    "Hidden by QuotaPulse" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由 QuotaPulse 隱藏"
+          }
+        }
+      }
+    },
+    "Insertion requested" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已向 macOS 要求顯示"
+          }
+        }
+      }
+    },
     "Launch at Login could not be changed." : {
       "localizations" : {
         "zh-Hant" : {
@@ -674,6 +747,53 @@
         }
       }
     },
+    "Menu Bar Provider" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選單列提供者"
+          }
+        }
+      }
+    },
+    "Menu bar status" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選單列狀態"
+          }
+        }
+      }
+    },
+    "Menu bar usage unavailable" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選單列使用量無法取得"
+          }
+        }
+      }
+    },
+    "menu-bar-provider.disabled %@" : {
+      "comment" : "Explains that the named explicitly pinned provider is disabled, but its preference is retained.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ is disabled. Its menu bar choice will be kept until you re-enable it."
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ 已停用；在你重新啟用前，系統會保留這個選單列選擇。"
+          }
+        }
+      }
+    },
     "No" : {
       "localizations" : {
         "zh-Hant" : {
@@ -684,12 +804,12 @@
         }
       }
     },
-    "No providers enabled" : {
+    "Not inserted by macOS" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "沒有啟用任何提供者"
+            "value" : "macOS 目前未插入"
           }
         }
       }
@@ -700,6 +820,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "沒有先前取得的配額資訊可供顯示。"
+          }
+        }
+      }
+    },
+    "No providers enabled" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "沒有啟用任何提供者"
           }
         }
       }
@@ -894,22 +1024,22 @@
         }
       }
     },
-    "Open Settings" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開啟設定"
-          }
-        }
-      }
-    },
     "Open or install ChatGPT or Codex, then refresh." : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "請開啟或安裝 ChatGPT 或 Codex，然後重新整理。"
+          }
+        }
+      }
+    },
+    "Open Settings" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟設定"
           }
         }
       }
@@ -1097,6 +1227,16 @@
         }
       }
     },
+    "Remaining" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "剩餘"
+          }
+        }
+      }
+    },
     "Requesting current quota information." : {
       "localizations" : {
         "zh-Hant" : {
@@ -1258,6 +1398,16 @@
         }
       }
     },
+    "Short windows (up to 6 hours)" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "短期配額週期（最長 6 小時）"
+          }
+        }
+      }
+    },
     "Show in Menu Bar" : {
       "localizations" : {
         "zh-Hant" : {
@@ -1278,16 +1428,6 @@
         }
       }
     },
-    "Short windows (up to 6 hours)" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "短期配額週期（最長 6 小時）"
-          }
-        }
-      }
-    },
     "Showing previously fetched usage" : {
       "localizations" : {
         "zh-Hant" : {
@@ -1304,6 +1444,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在顯示先前取得的使用量。"
+          }
+        }
+      }
+    },
+    "Your Show preference remains on. macOS controls actual menu bar visibility." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的顯示偏好仍為開啟；實際選單列可見性由 macOS 控制。"
           }
         }
       }
@@ -1375,6 +1525,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "提供者未回傳配額資訊。"
+          }
+        }
+      }
+    },
+    "The selected menu bar provider is unavailable in this version of QuotaPulse." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此版本的 QuotaPulse 無法使用目前選取的選單列提供者。"
           }
         }
       }
@@ -1490,6 +1650,16 @@
         }
       }
     },
+    "Usage display" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用量顯示方式"
+          }
+        }
+      }
+    },
     "Usage may be out of date" : {
       "localizations" : {
         "zh-Hant" : {
@@ -1570,6 +1740,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已使用 %@"
+          }
+        }
+      }
+    },
+    "Used" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已使用"
           }
         }
       }

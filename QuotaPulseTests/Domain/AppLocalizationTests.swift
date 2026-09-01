@@ -30,6 +30,13 @@ final class AppLocalizationTests: XCTestCase {
         }
     }
 
+    func testDisplayAndMenuBarLocalizationKeysExist() {
+        XCTAssertEqual(AppLocalization.string("Remaining", locale: Locale(identifier: "zh-Hant-TW")), "剩餘")
+        XCTAssertEqual(AppLocalization.string("Used", locale: Locale(identifier: "zh-Hant-TW")), "已使用")
+        XCTAssertEqual(AppLocalization.string("Menu Bar Provider", locale: Locale(identifier: "zh-Hant-TW")), "選單列提供者")
+        XCTAssertEqual(AppLocalization.string("Automatic", locale: Locale(identifier: "zh-Hant-TW")), "自動")
+    }
+
     func testNotificationPercentageFormattingInSupportedLanguages() {
         for percentage in [0, 1, 61, 100] {
             XCTAssertEqual(
@@ -153,6 +160,34 @@ final class AppLocalizationTests: XCTestCase {
                 locale: Locale(identifier: "zh-Hant-TW")
             ),
             "顯示於選單列"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Menu bar status",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "選單列狀態"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Hidden by QuotaPulse",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "由 QuotaPulse 隱藏"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Insertion requested",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "已向 macOS 要求顯示"
+        )
+        XCTAssertEqual(
+            AppLocalization.string(
+                "Not inserted by macOS",
+                locale: Locale(identifier: "zh-Hant-TW")
+            ),
+            "macOS 目前未插入"
         )
     }
 
