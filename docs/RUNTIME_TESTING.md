@@ -34,7 +34,47 @@ QuotaPulse 使用同一個 app target，透過 Xcode build configuration 隔離 
 
 App-hosted live tests 的 UserDefaults opt-in 也必須寫入 Debug domain：`runLiveNotificationTest` 與 `runLiveCodexProviderTest` 都使用 `dev.quotapulse.development.app`，測試後立即刪除。不要再把這些 development-only keys 寫入 `dev.quotapulse.app`。
 
-一般 XCTest 也是 app-hosted，平行 suite 可能同時建立多個 `QuotaPulse.app` test processes。Test host 的 `MenuBarExtra` session insertion 固定為 `false`，所以它們不要求顯示 status item；binding callback 也不寫 persisted user intent。所有直接修改 `SettingsStore` 的 tests 必須繼續使用 UUID suite 並清除 domain。完整測試前後都應抽查 `presentation.menu-bar-extra.requested` 沒有改變；system-level Control Center 可見性不是普通 XCTest 的驗證項目。
+一般 XCTest 也是 app-hosted。Test host 的 `MenuBarExtra` session insertion 固定為 `false`，production recovery delegate 不執行，binding callback 也不寫 persisted user intent；但這不等於沒有 system host。2026-09-01 的 unified log 證明，SwiftUI 仍會為每個 test-host process 向 Control Center 註冊 status-item host，且第一個 host 曾短暫要求 visibility true。`QuotaPulse.xcscheme` 的 tests 因此必須維持 `parallelizable = NO`，避免完整 suite 同時建立多個相同 bundle identity 的 host。這只是目前 MenuBarExtra 架構的 containment；若改用 `NSStatusItem`，acceptance gate 是 XCTest 完全不建立 `StatusItemController`／status item。所有直接修改 `SettingsStore` 的 tests 必須繼續使用 UUID suite 並清除 domain。完整測試前後都應抽查 `presentation.menu-bar-extra.requested` 沒有改變；system-level Control Center 可見性不是普通 XCTest 的驗證項目。
+
+### Foreign-association prevention
+
+1. Debug 永久使用 `dev.quotapulse.development.app`，Release 永久使用 `dev.quotapulse.app`；不得以輪替 identity 當成修復。
+2. Menu bar 人工驗證必須從 fresh Debug artifact 直接啟動，並先確認只有一個 QuotaPulse process／status-item host。
+3. Build-only 不得啟動 App。普通 XCTest 必須 serial；hybrid migration 後 tests 必須建立零 status item。
+4. Helper process 不得建立 QuotaPulse status item，也不得同時有多個 process host 同一個 item。
+5. 不得由 parent PID／responsible process 單獨推論 Control Center ownership。至少同時記錄 LaunchServices bundle identity、executable path 與 unified log 中的 status-item host identifier。
+6. 目前證據顯示 ChatGPT/Codex 是否可見，以及 QuotaPulse 是否為 Codex descendant，都不會把 current host 改成 OpenAI；不要為此新增特殊 launch workaround。
+7. 歷史 stale association 不得透過 Control Center 私有檔案、protected preferences、private frameworks、`defaults` workaround 或 bundle-ID rotation 修復。
+
+### Menu bar label 的證據邊界
+
+選單列 compact label 必須把三種證據分開記錄：
+
+1. `UsagePresentationTests` 與 `MenuBarPresentation` tests 只驗證 percentage、placeholder 與 provider selection 等 presentation-model contract。
+2. `SettingsIntegrationTests.testMenuBarPresentationObservationInvalidatesForPinAndUsageModeChanges` 只驗證 SwiftUI Observation 讀取的 runtime model 會因 pin 與 Remaining／Used 改變而 invalidated，並驗證這些變更不觸發 provider refresh、notification 或 reset pipeline。
+3. XCTest 與單純求值 `View.body` 都不能證明 macOS system status item 實際渲染文字。修改 label composition 後，必須用 fresh Debug artifact、單一 `dev.quotapulse.development.app` process 與真實選單列做人工檢查；必要時依序建立 DEBUG-only 靜態 probe：`Text("42%")`、明確的 `HStack { Image; Text("42%") }`、production `MenuBarLabel`。每次只保留一個 probe，記錄實際畫面後移除，不將 probe、timer 或 bundle identity workaround 留在 production。
+
+做視覺比對時，讓 Finder 等選單較短的 App 位於前景。macOS 可能因前景 App 選單與其他 status items 佔用寬度而暫時隱藏整個 QuotaPulse item；不要把相鄰第三方圖示誤認為 QuotaPulse，也不要由 process、UserDefaults 或 Control Center toggle 推論實際可見性。
+
+### MenuBar hide／show 生命週期
+
+Apple 文件指出，只有 `MenuBarExtra` 的 menu-bar-only App 在 extra 被移除後可能自動終止。QuotaPulse 現在另有非 menu-bar 的持續 Scene；「在選單列顯示 QuotaPulse」OFF 只保存 hide intent 並要求 runtime removal，process 應繼續運作。四項證據必須分列：
+
+1. `presentation.menu-bar-extra.requested`：QuotaPulse 保存的使用者意圖，只有 Settings／recovery action 可寫。
+2. `SettingsModel.isMenuBarExtraInserted`：本次 process 的 SwiftUI insertion binding；macOS callback 可改成 `false`，但不得回寫 persisted intent。
+3. Control Center app-status-item host：unified log 可只讀確認哪個 process／bundle 正在註冊與請求 visibility，但這不是可用的產品 API。
+4. 實際 status item 可見性／Control Center allowance：macOS 最終決定，沒有 QuotaPulse 可用的公開權威查詢 API；binding true 也不保證目前畫面一定看得見。
+
+每次生命週期修改都要用 fresh Debug artifact 執行以下序列，不使用任意 sleep，也不讀寫 Control Center 私有 preference：
+
+1. 確認 requested ON，啟動單一 `dev.quotapulse.development.app` process，記錄 PID 與實際 menu bar 畫面。
+2. 開啟 Settings，切換 OFF；確認 toggle 與 runtime status 立即變成 hidden、status item 消失，但同一 PID 仍存在。
+3. 查詢該 PID 的 Unified Log，確認沒有 assertion、uncaught exception、crash signal 或 termination sequence；再檢查 `~/Library/Logs/DiagnosticReports` 沒有新的 QuotaPulse report。
+4. 關閉 Settings，使 App 完全隱藏；從 Finder／Spotlight 明確重新開啟同一 artifact。確認 recovery window 可達，沒有永久 Dock icon。
+5. 按 Show；確認 persisted intent 與 runtime insertion request 都回到 true。Recovery action 不得在提出 request 的同一個 action 立即關閉視窗；視窗應在 shared model 傳遞 insertion change 後關閉。再人工確認 menu bar label 的 icon、percentage、Automatic／pin 與 Remaining／Used。
+6. 若只做 read-only 系統檢查，可到「系統設定」→「選單列」記錄 QuotaPulse 列出的狀態。改動 Allow in the Menu Bar 屬 system-setting mutation，需另行明確確認；不得使用 `defaults`、`group.com.apple.controlcenter`、受保護 preference file 或 private API。
+
+基線消失若要分類，先看 exit status、`App termination approved`／`Termination complete` 等 AppKit log、Xcode console 與 crash report，再判斷是正常自動／明確終止或真正 crash。關閉 Settings toggle 本身不得呼叫 `terminate`。目前仍保留兩個刻意正常終止點：hidden 的 login-item launch 安靜退出；使用者在 hidden recovery 中按 Quit 或關閉唯一復原視窗時退出，避免不可達的 invisible process。
 
 若要做實際 Launch at Login register／restart 測試，先把已簽章 Debug artifact 安裝到獨立且穩定的 `/Applications/QuotaPulse Debug.app`，再從該路徑啟用；不要覆蓋 `/Applications/QuotaPulse.app`。用 `sfltool dumpbtm` 確認紀錄屬於 `dev.quotapulse.development.app`，測試完成後先在 QuotaPulse Debug 關閉登入時啟動，再移除測試 artifact。DerivedData 或 `/tmp` 啟動只適合確認 UI／identity，不足以宣稱 installed-app registration 與重新登入已通過。
 
