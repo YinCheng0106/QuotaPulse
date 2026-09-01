@@ -3,6 +3,7 @@ import SwiftUI
 
 struct DashboardView: View {
     let model: AppModel
+    let usagePresentationMode: UsagePresentationMode
 
     var body: some View {
         #if DEBUG
@@ -32,7 +33,10 @@ struct DashboardView: View {
                 ScrollView {
                     LazyVStack(spacing: 10) {
                         ForEach(activeProviderStates) { state in
-                            ProviderCardView(state: state)
+                            ProviderCardView(
+                                state: state,
+                                usagePresentationMode: usagePresentationMode
+                            )
                         }
                     }
                     .padding(.vertical, 1)
@@ -166,5 +170,8 @@ private struct DashboardActionsView: View {
 }
 
 #Preview("Dashboard") {
-    DashboardView(model: AppDependencies.makePreviewModel())
+    DashboardView(
+        model: AppDependencies.makePreviewModel(),
+        usagePresentationMode: .remaining
+    )
 }

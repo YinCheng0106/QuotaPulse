@@ -164,6 +164,37 @@ final class SettingsStoreTests: XCTestCase {
         XCTAssertEqual(defaults.string(forKey: "presentation.menu-bar.pinned-provider"), "codex")
     }
 
+    func testChangingDisplayPreferenceDoesNotAlterProviderOrNotificationPreferences() {
+        let (defaults, suiteName) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = SettingsStore(defaults: defaults)
+        store.setProvider(.claude, enabled: false)
+        store.setNotificationsEnabled(false)
+        let beforeThresholds = store.notificationPreferences.enabledThresholdMinutes
+
+        store.setUsagePresentationMode(.used)
+
+        XCTAssertEqual(store.usagePresentationMode, .used)
+        XCTAssertTrue(store.isCodexEnabled)
+        XCTAssertFalse(store.isClaudeEnabled)
+        XCTAssertFalse(store.areNotificationsEnabled)
+        XCTAssertEqual(store.notificationPreferences.enabledThresholdMinutes, beforeThresholds)
+    }
+
+    func testChangingProviderEnablementDoesNotAlterDisplayPreference() {
+        let (defaults, suiteName) = makeDefaults()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = SettingsStore(defaults: defaults)
+        store.setUsagePresentationMode(.used)
+
+        store.setProvider(.codex, enabled: false)
+        store.setProvider(.claude, enabled: false)
+
+        XCTAssertEqual(store.usagePresentationMode, .used)
+        XCTAssertFalse(store.isCodexEnabled)
+        XCTAssertFalse(store.isClaudeEnabled)
+    }
+
     func testUnknownPinnedProviderIsNotRenderedOrErasedByOlderApp() {
         let (defaults, suiteName) = makeDefaults()
         defer { defaults.removePersistentDomain(forName: suiteName) }

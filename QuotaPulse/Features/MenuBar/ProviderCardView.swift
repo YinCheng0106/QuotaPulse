@@ -4,6 +4,7 @@ struct ProviderCardView: View {
     @Environment(\.locale) private var locale
 
     let state: ProviderState
+    let usagePresentationMode: UsagePresentationMode
 
     private var presentation: ProviderStatePresentation {
         ProviderStatePresentation(state: state, locale: locale)
@@ -19,7 +20,7 @@ struct ProviderCardView: View {
 
             if let snapshot = state.snapshot, !snapshot.windows.isEmpty {
                 ForEach(snapshot.windows) { window in
-                    UsageWindowRow(window: window)
+                    UsageWindowRow(window: window, mode: usagePresentationMode)
                 }
             }
 
@@ -116,20 +117,22 @@ extension ProviderStatePresentation.Kind {
 
 #Preview("Provider states") {
     VStack(spacing: 10) {
-        ProviderCardView(state: .loading(.codex))
+        ProviderCardView(state: .loading(.codex), usagePresentationMode: .remaining)
         ProviderCardView(
             state: ProviderState(
                 providerID: .claude,
                 status: .notConfigured,
                 snapshot: nil
-            )
+            ),
+            usagePresentationMode: .remaining
         )
         ProviderCardView(
             state: ProviderState(
                 providerID: .codex,
                 status: .failed(.refreshFailed),
                 snapshot: nil
-            )
+            ),
+            usagePresentationMode: .remaining
         )
     }
     .padding(12)
@@ -155,7 +158,8 @@ extension ProviderStatePresentation.Kind {
                 capturedAt: .now,
                 source: UsageSource(kind: .mock, label: "Preview", documentationURL: nil)
             )
-        )
+        ),
+        usagePresentationMode: .remaining
     )
     .padding(12)
     .frame(width: 300)

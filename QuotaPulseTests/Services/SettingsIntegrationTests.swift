@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import Observation
 import ServiceManagement
 import XCTest
 @testable import QuotaPulse
@@ -145,6 +147,163 @@ final class SettingsIntegrationTests: XCTestCase {
         XCTAssertEqual(notifications.providerTransitions, [.codex: false])
     }
 
+    func testRuntimePresentationChangesDoNotEnterRefreshNotificationResetOrRecoveryPipelines() async {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let claude = SettingsCountingProvider(id: .claude, usedPercentage: 24)
+        let codex = SettingsCountingProvider(id: .codex, usedPercentage: 39)
+        let providers: [any UsageProvider] = [claude, codex]
+        let notifications = SettingsNotificationService()
+        let appModel = AppModel(
+            providerIDs: providers.map(\.id),
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: providers, preferences: store)
+            ),
+            notificationService: notifications,
+            observesLifecycle: false
+        )
+        let settingsModel = SettingsModel(
+            store: store,
+            appModel: appModel,
+            notificationService: notifications,
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+        await appModel.refresh()
+        let baselineNotificationEvaluations = notifications.evaluationCount
+        let baselineMenuBarRequested = store.isMenuBarExtraRequested
+        let baselineMenuBarInserted = settingsModel.isMenuBarExtraInserted
+
+        XCTAssertNil(settingsModel.pinnedProviderID)
+        XCTAssertEqual(settingsModel.menuBarPresentation.currentlyRenderedProvider, .claude)
+        settingsModel.setPinnedProvider(.codex)
+
+        XCTAssertEqual(store.pinnedProviderRawValue, ProviderID.codex.rawValue)
+        XCTAssertEqual(settingsModel.menuBarPresentation.currentlyRenderedProvider, .codex)
+        XCTAssertEqual(settingsModel.menuBarPresentation.usage?.percentage, 61)
+
+        settingsModel.setUsagePresentationMode(.used)
+
+        let claudeFetchCount = await claude.fetchCount
+        let codexFetchCount = await codex.fetchCount
+        XCTAssertEqual(store.usagePresentationMode, .used)
+        XCTAssertEqual(settingsModel.menuBarPresentation.currentlyRenderedProvider, .codex)
+        XCTAssertEqual(settingsModel.menuBarPresentation.usage?.percentage, 39)
+        XCTAssertEqual(claudeFetchCount, 1)
+        XCTAssertEqual(codexFetchCount, 1)
+        // NotificationService.evaluate runs reset detection, while provider enablement
+        // invalidates its baseline; presentation changes must enter neither path.
+        XCTAssertEqual(notifications.evaluationCount, baselineNotificationEvaluations)
+        XCTAssertEqual(notifications.preferencesChangeCount, 0)
+        XCTAssertTrue(notifications.providerTransitions.isEmpty)
+        XCTAssertEqual(store.isMenuBarExtraRequested, baselineMenuBarRequested)
+        XCTAssertEqual(settingsModel.isMenuBarExtraInserted, baselineMenuBarInserted)
+    }
+
+    func testPinnedDisabledProviderDoesNotFallbackAndReenableRestoresIt() async {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let codex = SettingsCountingProvider(id: .codex, usedPercentage: 39)
+        let claude = SettingsCountingProvider(id: .claude, usedPercentage: 24)
+        let providers: [any UsageProvider] = [codex, claude]
+        let notifications = SettingsNotificationService()
+        let appModel = AppModel(
+            providerIDs: providers.map(\.id),
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: providers, preferences: store)
+            ),
+            notificationService: notifications,
+            observesLifecycle: false
+        )
+        let settingsModel = SettingsModel(
+            store: store,
+            appModel: appModel,
+            notificationService: notifications,
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+        await appModel.refresh()
+        settingsModel.setPinnedProvider(.claude)
+
+        settingsModel.setProvider(.claude, enabled: false)
+
+        XCTAssertEqual(store.pinnedProviderRawValue, ProviderID.claude.rawValue)
+        XCTAssertEqual(settingsModel.pinnedProviderID, .claude)
+        XCTAssertEqual(settingsModel.menuBarPresentation.selectedProvider, .claude)
+        XCTAssertNil(settingsModel.menuBarPresentation.currentlyRenderedProvider)
+        XCTAssertEqual(settingsModel.menuBarPresentation.availability, .disabled)
+
+        settingsModel.setProvider(.claude, enabled: true)
+
+        XCTAssertEqual(settingsModel.menuBarPresentation.selectedProvider, .claude)
+        XCTAssertNil(settingsModel.menuBarPresentation.currentlyRenderedProvider)
+        XCTAssertEqual(settingsModel.menuBarPresentation.availability, .unavailable)
+        await appModel.refresh()
+
+        XCTAssertEqual(store.pinnedProviderRawValue, ProviderID.claude.rawValue)
+        XCTAssertEqual(settingsModel.menuBarPresentation.currentlyRenderedProvider, .claude)
+        XCTAssertEqual(settingsModel.menuBarPresentation.availability, .renderable)
+        XCTAssertEqual(settingsModel.menuBarPresentation.usage?.percentage, 76)
+    }
+
+    func testAllProvidersDisabledHasExplicitSafeMenuBarState() {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let notifications = SettingsNotificationService()
+        let appModel = AppModel(
+            providerIDs: [.codex, .claude],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: [], preferences: store)
+            ),
+            notificationService: notifications,
+            observesLifecycle: false
+        )
+        let settingsModel = SettingsModel(
+            store: store,
+            appModel: appModel,
+            notificationService: notifications,
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+
+        settingsModel.setProvider(.codex, enabled: false)
+        settingsModel.setProvider(.claude, enabled: false)
+
+        XCTAssertNil(settingsModel.pinnedProviderRawValue)
+        XCTAssertNil(settingsModel.menuBarPresentation.selectedProvider)
+        XCTAssertNil(settingsModel.menuBarPresentation.currentlyRenderedProvider)
+        XCTAssertEqual(settingsModel.menuBarPresentation.availability, .empty)
+    }
+
+    func testMenuBarPresentationObservationInvalidatesForPinAndUsageModeChanges() {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let model = SettingsModel(
+            store: store,
+            appModel: makeAppModel(),
+            notificationService: SettingsNotificationService(),
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+        let pinInvalidated = expectation(description: "Menu bar pin presentation invalidated")
+        withObservationTracking {
+            _ = model.menuBarPresentation
+        } onChange: {
+            pinInvalidated.fulfill()
+        }
+
+        model.setPinnedProvider(.codex)
+
+        XCTAssertEqual(XCTWaiter.wait(for: [pinInvalidated], timeout: 0), .completed)
+
+        let modeInvalidated = expectation(description: "Menu bar usage mode invalidated")
+        withObservationTracking {
+            _ = model.menuBarPresentation
+        } onChange: {
+            modeInvalidated.fulfill()
+        }
+
+        model.setUsagePresentationMode(.used)
+
+        XCTAssertEqual(XCTWaiter.wait(for: [modeInvalidated], timeout: 0), .completed)
+    }
+
     func testLaunchAtLoginUsesControllerStateAfterSuccessAndFailure() async {
         let (store, defaults, suiteName) = makeStore()
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -215,6 +374,61 @@ final class SettingsIntegrationTests: XCTestCase {
 
         XCTAssertFalse(model.isMenuBarExtraInserted)
         XCTAssertFalse(store.isMenuBarExtraRequested)
+    }
+
+    func testExplicitMenuBarHideDoesNotDisableProvidersOrPresentation() async {
+        let (store, defaults, suiteName) = makeStore()
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let codex = SettingsCountingProvider(id: .codex, usedPercentage: 39)
+        let notifications = SettingsNotificationService()
+        let appModel = AppModel(
+            providerIDs: [.codex],
+            refreshCoordinator: RefreshCoordinator(
+                usageService: UsageService(providers: [codex], preferences: store)
+            ),
+            notificationService: notifications,
+            observesLifecycle: false
+        )
+        let model = SettingsModel(
+            store: store,
+            appModel: appModel,
+            notificationService: notifications,
+            launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+        )
+        await appModel.refresh()
+        let baselineNotificationEvaluations = notifications.evaluationCount
+
+        model.setMenuBarExtraRequested(false)
+
+        let fetchCount = await codex.fetchCount
+        XCTAssertFalse(store.isMenuBarExtraRequested)
+        XCTAssertFalse(model.isMenuBarExtraInserted)
+        XCTAssertEqual(appModel.activeProviderStates.map(\.providerID), [.codex])
+        XCTAssertEqual(model.menuBarPresentation.currentlyRenderedProvider, .codex)
+        XCTAssertEqual(model.menuBarPresentation.usage?.percentage, 61)
+        XCTAssertEqual(fetchCount, 1)
+        XCTAssertEqual(notifications.evaluationCount, baselineNotificationEvaluations)
+    }
+
+    func testNormalApplicationTerminationDoesNotMutateMenuBarIntent() {
+        for requested in [false, true] {
+            let (store, defaults, suiteName) = makeStore()
+            defer { defaults.removePersistentDomain(forName: suiteName) }
+            store.setMenuBarExtraRequested(requested)
+            _ = SettingsModel(
+                store: store,
+                appModel: makeAppModel(),
+                notificationService: SettingsNotificationService(),
+                launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
+            )
+
+            NotificationCenter.default.post(
+                name: NSApplication.willTerminateNotification,
+                object: nil
+            )
+
+            XCTAssertEqual(store.isMenuBarExtraRequested, requested)
+        }
     }
 
     func testLaunchAtLoginMapsEveryKnownSystemStatus() {
@@ -302,17 +516,29 @@ private final class SettingsDiagnosticClipboard: DiagnosticClipboardWriting {
 
 private actor SettingsCountingProvider: UsageProvider {
     nonisolated let id: ProviderID
+    private let usedPercentage: Double?
     private(set) var fetchCount = 0
 
-    init(id: ProviderID) {
+    init(id: ProviderID, usedPercentage: Double? = nil) {
         self.id = id
+        self.usedPercentage = usedPercentage
     }
 
     func fetchUsage() async throws -> ProviderUsageSnapshot {
         fetchCount += 1
         return ProviderUsageSnapshot(
             providerID: id,
-            windows: [],
+            windows: usedPercentage.map {
+                [
+                    UsageWindow(
+                        id: "primary",
+                        label: "Primary window",
+                        usedPercentage: $0,
+                        resetAt: Date(timeIntervalSince1970: 2_000_003_600),
+                        duration: .seconds(18_000)
+                    ),
+                ]
+            } ?? [],
             capturedAt: Date(timeIntervalSince1970: 2_000_000_000),
             source: UsageSource(kind: .mock, label: "Test", documentationURL: nil)
         )
@@ -322,9 +548,16 @@ private actor SettingsCountingProvider: UsageProvider {
 @MainActor
 private final class SettingsNotificationService: NotificationServicing {
     private(set) var providerTransitions: [ProviderID: Bool] = [:]
+    private(set) var evaluationCount = 0
+    private(set) var preferencesChangeCount = 0
 
-    func evaluate(_ providerStates: [ProviderState], now: Date) async {}
+    func evaluate(_ providerStates: [ProviderState], now: Date) async {
+        evaluationCount += 1
+    }
     func authorizationStatus() async -> NotificationAuthorizationStatus { .authorized }
+    func preferencesDidChange() async {
+        preferencesChangeCount += 1
+    }
     func providerEnablementDidChange(_ providerID: ProviderID, isEnabled: Bool) {
         providerTransitions[providerID] = isEnabled
     }

@@ -19,9 +19,12 @@ struct QuotaPulseApp: App {
                 set: { runtime.settingsModel.menuBarExtraInsertionDidChange($0) }
             )
         ) {
-            DashboardView(model: runtime.appModel)
+            MenuBarContent(
+                appModel: runtime.appModel,
+                settingsModel: runtime.settingsModel
+            )
         } label: {
-            Label("QuotaPulse", systemImage: "gauge.with.dots.needle.50percent")
+            MenuBarLabel(settingsModel: runtime.settingsModel)
         }
         .menuBarExtraStyle(.window)
 
@@ -40,5 +43,55 @@ struct QuotaPulseApp: App {
         }
         .windowResizability(.contentSize)
         .commandsRemoved()
+    }
+}
+
+private struct MenuBarContent: View {
+    let appModel: AppModel
+    let settingsModel: SettingsModel
+
+    var body: some View {
+        DashboardView(
+            model: appModel,
+            usagePresentationMode: settingsModel.usagePresentationMode
+        )
+    }
+}
+
+private struct MenuBarLabel: View {
+    @Environment(\.locale) private var locale
+
+    let settingsModel: SettingsModel
+
+    var body: some View {
+        let presentation = settingsModel.menuBarPresentation
+        HStack(spacing: 4) {
+            Image(systemName: "gauge.with.dots.needle.50percent")
+            Text(presentation.usage?.compactText(locale: locale) ?? "—")
+                .monospacedDigit()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(accessibilityLabel(for: presentation))
+        .accessibilityValue(accessibilityValue(for: presentation))
+    }
+
+    private func accessibilityLabel(for presentation: MenuBarPresentation) -> String {
+        presentation.selectedProvider?.displayName ?? "QuotaPulse"
+    }
+
+    private func accessibilityValue(for presentation: MenuBarPresentation) -> String {
+        guard let usage = presentation.usage?.text(locale: locale) else {
+            return switch presentation.availability {
+            case .renderable:
+                AppLocalization.string("Menu bar usage unavailable", locale: locale)
+            case .disabled:
+                AppLocalization.string("Disabled", locale: locale)
+            case .unavailable:
+                AppLocalization.string("Unavailable", locale: locale)
+            case .empty:
+                AppLocalization.string("No providers enabled", locale: locale)
+            }
+        }
+        return usage
     }
 }

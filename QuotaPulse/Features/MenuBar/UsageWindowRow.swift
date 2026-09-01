@@ -4,6 +4,11 @@ struct UsageWindowRow: View {
     @Environment(\.locale) private var locale
 
     let window: UsageWindow
+    let mode: UsagePresentationMode
+
+    private var usage: UsagePresentation {
+        UsagePresentation(window: window, mode: mode)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -13,12 +18,10 @@ struct UsageWindowRow: View {
                 Text(window.label)
                     .font(.subheadline.weight(.medium))
                 Spacer()
-                if let roundedUsedPercentage = window.roundedUsedPercentage {
-                    Text(AppLocalization.usedPercentage(roundedUsedPercentage, locale: locale))
+                if let text = usage.text(locale: locale) {
+                    Text(text)
                         .font(.subheadline.weight(.semibold).monospacedDigit())
-                        .accessibilityLabel(
-                            AppLocalization.usedPercentage(roundedUsedPercentage, locale: locale)
-                        )
+                        .accessibilityLabel(text)
                 } else {
                     Text("Usage unavailable")
                         .font(.caption)
@@ -33,15 +36,6 @@ struct UsageWindowRow: View {
             }
 
             HStack {
-                if let roundedRemainingPercentage = window.roundedRemainingPercentage {
-                    Text(
-                        AppLocalization.remainingPercentage(
-                            roundedRemainingPercentage,
-                            locale: locale
-                        )
-                    )
-                        .monospacedDigit()
-                }
                 Spacer()
                 if let resetAt = window.resetAt {
                     ResetCountdownView(resetAt: resetAt)
@@ -80,14 +74,6 @@ private struct ResetCountdownView: View {
 }
 
 private extension UsageWindow {
-    var roundedUsedPercentage: Int? {
-        displayUsedPercentage.map { Int($0.rounded()) }
-    }
-
-    var roundedRemainingPercentage: Int? {
-        remainingPercentage.map { Int($0.rounded()) }
-    }
-
     var progressTint: Color {
         switch displayUsedPercentage ?? 0 {
         case 85...:

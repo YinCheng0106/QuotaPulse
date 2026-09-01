@@ -20,6 +20,9 @@ final class SettingsModel {
     let store: SettingsStore
 
     private(set) var isMenuBarExtraInserted: Bool
+    private(set) var usagePresentationMode: UsagePresentationMode
+    /// Retains unknown future provider values while this app version is running.
+    private(set) var pinnedProviderRawValue: String?
     private(set) var launchAtLoginStatus: LaunchAtLoginStatus = .disabled
     private(set) var notificationAuthorizationStatus: NotificationAuthorizationStatus = .notDetermined
     private(set) var diagnostics: CompatibilityDiagnosticsSnapshot?
@@ -42,6 +45,8 @@ final class SettingsModel {
         self.store = store
         isMenuBarExtraInserted = AppRuntimeEnvironment.shouldInsertMenuBarExtraOnLaunch
             && store.isMenuBarExtraRequested
+        usagePresentationMode = store.usagePresentationMode
+        pinnedProviderRawValue = store.pinnedProviderRawValue
         self.appModel = appModel
         self.notificationService = notificationService
         self.launchAtLoginController = launchAtLoginController
@@ -88,6 +93,29 @@ final class SettingsModel {
     func setMenuBarExtraRequested(_ requested: Bool) {
         store.setMenuBarExtraRequested(requested)
         isMenuBarExtraInserted = requested
+    }
+
+    func setUsagePresentationMode(_ mode: UsagePresentationMode) {
+        guard usagePresentationMode != mode else { return }
+        store.setUsagePresentationMode(mode)
+        usagePresentationMode = mode
+    }
+
+    func setPinnedProvider(_ providerID: ProviderID?) {
+        store.setPinnedProvider(providerID)
+        pinnedProviderRawValue = providerID?.rawValue
+    }
+
+    var pinnedProviderID: ProviderID? {
+        pinnedProviderRawValue.flatMap(ProviderID.init(rawValue:))
+    }
+
+    var menuBarPresentation: MenuBarPresentation {
+        MenuBarPresentation(
+            providerStates: appModel.providerStates,
+            persistedPinnedProviderRawValue: pinnedProviderRawValue,
+            mode: usagePresentationMode
+        )
     }
 
     func menuBarExtraInsertionDidChange(_ isInserted: Bool) {
