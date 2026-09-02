@@ -19,7 +19,7 @@ private final class SystemDiagnosticClipboard: DiagnosticClipboardWriting {
 final class SettingsModel {
     let store: SettingsStore
 
-    private(set) var isMenuBarExtraInserted: Bool
+    private(set) var isMenuBarItemVisible = false
     private(set) var usagePresentationMode: UsagePresentationMode
     /// Retains unknown future provider values while this app version is running.
     private(set) var pinnedProviderRawValue: String?
@@ -43,8 +43,6 @@ final class SettingsModel {
         diagnosticClipboard: any DiagnosticClipboardWriting = SystemDiagnosticClipboard()
     ) {
         self.store = store
-        isMenuBarExtraInserted = AppRuntimeEnvironment.shouldInsertMenuBarExtraOnLaunch
-            && store.isMenuBarExtraRequested
         usagePresentationMode = store.usagePresentationMode
         pinnedProviderRawValue = store.pinnedProviderRawValue
         self.appModel = appModel
@@ -90,9 +88,8 @@ final class SettingsModel {
         }
     }
 
-    func setMenuBarExtraRequested(_ requested: Bool) {
-        store.setMenuBarExtraRequested(requested)
-        isMenuBarExtraInserted = requested
+    func setMenuBarItemRequested(_ requested: Bool) {
+        store.setMenuBarItemRequested(requested)
     }
 
     func setUsagePresentationMode(_ mode: UsagePresentationMode) {
@@ -118,8 +115,9 @@ final class SettingsModel {
         )
     }
 
-    func menuBarExtraInsertionDidChange(_ isInserted: Bool) {
-        isMenuBarExtraInserted = isInserted
+    func menuBarItemVisibilityDidChange(_ isVisible: Bool) {
+        guard isMenuBarItemVisible != isVisible else { return }
+        isMenuBarItemVisible = isVisible
     }
 
     func setProvider(

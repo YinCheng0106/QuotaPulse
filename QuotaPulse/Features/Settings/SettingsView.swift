@@ -30,8 +30,10 @@ private struct GeneralSettingsPage: View {
     var body: some View {
         Form {
             Section("General") {
-                Toggle("Show QuotaPulse in Menu Bar", isOn: menuBarVisibilityBinding)
-                menuBarInsertionStatus
+                Toggle("Show Menu Bar Item", isOn: menuBarVisibilityBinding)
+                Text("macOS may also control visibility in System Settings.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle("Launch at Login", isOn: launchAtLoginBinding)
                     .disabled(model.isUpdatingLaunchAtLogin || model.launchAtLoginStatus == .requiresApproval)
                 launchAtLoginStatus
@@ -93,32 +95,9 @@ private struct GeneralSettingsPage: View {
 
     private var menuBarVisibilityBinding: Binding<Bool> {
         Binding(
-            get: { model.store.isMenuBarExtraRequested },
-            set: { model.setMenuBarExtraRequested($0) }
+            get: { model.store.isMenuBarItemRequested },
+            set: { model.setMenuBarItemRequested($0) }
         )
-    }
-
-    @ViewBuilder
-    private var menuBarInsertionStatus: some View {
-        if !model.store.isMenuBarExtraRequested {
-            LabeledContent("Menu bar status") {
-                Text("Hidden by QuotaPulse")
-            }
-        } else if model.isMenuBarExtraInserted {
-            LabeledContent("Menu bar status") {
-                Text("Insertion requested")
-            }
-        } else {
-            LabeledContent("Menu bar status") {
-                Text("Not inserted by macOS")
-            }
-            Text(
-                "Your Show preference remains on. macOS controls actual menu bar visibility."
-            )
-            .font(.caption)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-        }
     }
 
     private var launchAtLoginBinding: Binding<Bool> {

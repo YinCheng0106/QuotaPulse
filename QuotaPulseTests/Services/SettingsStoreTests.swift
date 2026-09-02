@@ -11,7 +11,7 @@ final class SettingsStoreTests: XCTestCase {
 
         first.setProvider(.codex, enabled: false)
         first.setProvider(.claude, enabled: false)
-        first.setMenuBarExtraRequested(false)
+        first.setMenuBarItemRequested(false)
         first.setNotificationsEnabled(false)
         first.setReminder(windowClass: .short, minutes: 60, enabled: false)
         first.setReminder(windowClass: .short, minutes: 30, enabled: false)
@@ -27,7 +27,7 @@ final class SettingsStoreTests: XCTestCase {
 
         XCTAssertFalse(recreated.isCodexEnabled)
         XCTAssertFalse(recreated.isClaudeEnabled)
-        XCTAssertFalse(recreated.isMenuBarExtraRequested)
+        XCTAssertFalse(recreated.isMenuBarItemRequested)
         XCTAssertFalse(recreated.areNotificationsEnabled)
         XCTAssertEqual(recreated.notificationPreferences.thresholds(for: .short), [])
         XCTAssertEqual(recreated.notificationPreferences.thresholds(for: .long), [])
@@ -46,7 +46,7 @@ final class SettingsStoreTests: XCTestCase {
 
         XCTAssertTrue(store.isCodexEnabled)
         XCTAssertTrue(store.isClaudeEnabled)
-        XCTAssertTrue(store.isMenuBarExtraRequested)
+        XCTAssertTrue(store.isMenuBarItemRequested)
         XCTAssertTrue(store.areNotificationsEnabled)
         XCTAssertEqual(store.notificationPreferences.thresholds(for: .short), [60, 30])
         XCTAssertEqual(
@@ -65,9 +65,9 @@ final class SettingsStoreTests: XCTestCase {
         defer { defaults.removePersistentDomain(forName: suiteName) }
         let store = SettingsStore(defaults: defaults)
 
-        store.setMenuBarExtraRequested(false)
+        store.setMenuBarItemRequested(false)
 
-        XCTAssertFalse(store.isMenuBarExtraRequested)
+        XCTAssertFalse(store.isMenuBarItemRequested)
         XCTAssertTrue(store.isCodexEnabled)
         XCTAssertTrue(store.isClaudeEnabled)
     }
@@ -79,12 +79,12 @@ final class SettingsStoreTests: XCTestCase {
 
         store.setProvider(.codex, enabled: false)
         store.setProvider(.claude, enabled: false)
-        XCTAssertTrue(store.isMenuBarExtraRequested)
+        XCTAssertTrue(store.isMenuBarItemRequested)
 
-        store.setMenuBarExtraRequested(false)
+        store.setMenuBarItemRequested(false)
         store.setProvider(.codex, enabled: true)
         store.setProvider(.claude, enabled: true)
-        XCTAssertFalse(store.isMenuBarExtraRequested)
+        XCTAssertFalse(store.isMenuBarItemRequested)
     }
 
     func testLegacyOneHourPreferenceMigratesToShortWindowSetting() {

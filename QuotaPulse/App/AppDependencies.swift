@@ -5,7 +5,7 @@ enum AppRuntimeEnvironment {
         ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
     }
 
-    static var shouldInsertMenuBarExtraOnLaunch: Bool {
+    static var shouldCreateStatusItemController: Bool {
         !isRunningTests
     }
 }

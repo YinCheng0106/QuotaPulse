@@ -30,6 +30,14 @@ enum AppLocalization {
         )
     }
 
+    static func menuBarDisabledLabel(providerName: String, locale: Locale) -> String {
+        string("menu-bar.accessibility.disabled \(providerName)", locale: locale)
+    }
+
+    static func menuBarUnavailableLabel(providerName: String, locale: Locale) -> String {
+        string("menu-bar.accessibility.unavailable \(providerName)", locale: locale)
+    }
+
     static func resetCountdown(_ countdown: String, locale: Locale) -> String {
         string("reset.countdown \(countdown)", locale: locale)
     }

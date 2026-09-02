@@ -70,7 +70,7 @@ xcodebuild \
   build
 ```
 
-Debug build 使用獨立的 `dev.quotapulse.development.app` identity，並顯示為 **QuotaPulse Debug**。這會讓開發期間的 `MenuBarExtra`、登入時啟動、通知權限與 `UserDefaults` 狀態和 production `dev.quotapulse.app` identity 分開；兩個 configuration 刻意不共用偏好設定。
+Debug build 使用獨立的 `dev.quotapulse.development.app` identity，並顯示為 **QuotaPulse Debug**。這會讓開發期間的選單列 status-item persistence、登入時啟動、通知權限與 `UserDefaults` 狀態和 production `dev.quotapulse.app` identity 分開；兩個 configuration 刻意不共用偏好設定。
 
 ## Codex 整合方式
 

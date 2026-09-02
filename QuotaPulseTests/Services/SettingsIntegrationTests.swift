@@ -170,8 +170,8 @@ final class SettingsIntegrationTests: XCTestCase {
         )
         await appModel.refresh()
         let baselineNotificationEvaluations = notifications.evaluationCount
-        let baselineMenuBarRequested = store.isMenuBarExtraRequested
-        let baselineMenuBarInserted = settingsModel.isMenuBarExtraInserted
+        let baselineMenuBarRequested = store.isMenuBarItemRequested
+        let baselineMenuBarVisible = settingsModel.isMenuBarItemVisible
 
         XCTAssertNil(settingsModel.pinnedProviderID)
         XCTAssertEqual(settingsModel.menuBarPresentation.currentlyRenderedProvider, .claude)
@@ -195,8 +195,8 @@ final class SettingsIntegrationTests: XCTestCase {
         XCTAssertEqual(notifications.evaluationCount, baselineNotificationEvaluations)
         XCTAssertEqual(notifications.preferencesChangeCount, 0)
         XCTAssertTrue(notifications.providerTransitions.isEmpty)
-        XCTAssertEqual(store.isMenuBarExtraRequested, baselineMenuBarRequested)
-        XCTAssertEqual(settingsModel.isMenuBarExtraInserted, baselineMenuBarInserted)
+        XCTAssertEqual(store.isMenuBarItemRequested, baselineMenuBarRequested)
+        XCTAssertEqual(settingsModel.isMenuBarItemVisible, baselineMenuBarVisible)
     }
 
     func testPinnedDisabledProviderDoesNotFallbackAndReenableRestoresIt() async {
@@ -330,7 +330,7 @@ final class SettingsIntegrationTests: XCTestCase {
     func testMenuBarRecoveryActionRequestsInsertion() {
         let (store, defaults, suiteName) = makeStore()
         defer { defaults.removePersistentDomain(forName: suiteName) }
-        store.setMenuBarExtraRequested(false)
+        store.setMenuBarItemRequested(false)
         let model = SettingsModel(
             store: store,
             appModel: makeAppModel(),
@@ -338,10 +338,10 @@ final class SettingsIntegrationTests: XCTestCase {
             launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
         )
 
-        model.setMenuBarExtraRequested(true)
+        model.setMenuBarItemRequested(true)
 
-        XCTAssertTrue(store.isMenuBarExtraRequested)
-        XCTAssertTrue(model.isMenuBarExtraInserted)
+        XCTAssertTrue(store.isMenuBarItemRequested)
+        XCTAssertFalse(model.isMenuBarItemVisible)
     }
 
     func testRuntimeMenuBarRemovalDoesNotRewritePersistedUserIntent() {
@@ -354,10 +354,10 @@ final class SettingsIntegrationTests: XCTestCase {
             launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
         )
 
-        model.menuBarExtraInsertionDidChange(false)
+        model.menuBarItemVisibilityDidChange(false)
 
-        XCTAssertFalse(model.isMenuBarExtraInserted)
-        XCTAssertTrue(store.isMenuBarExtraRequested)
+        XCTAssertFalse(model.isMenuBarItemVisible)
+        XCTAssertTrue(store.isMenuBarItemRequested)
     }
 
     func testExplicitMenuBarHidePersistsUserIntentAndRuntimeState() {
@@ -370,10 +370,10 @@ final class SettingsIntegrationTests: XCTestCase {
             launchAtLoginController: SettingsLaunchAtLoginController(status: .disabled)
         )
 
-        model.setMenuBarExtraRequested(false)
+        model.setMenuBarItemRequested(false)
 
-        XCTAssertFalse(model.isMenuBarExtraInserted)
-        XCTAssertFalse(store.isMenuBarExtraRequested)
+        XCTAssertFalse(model.isMenuBarItemVisible)
+        XCTAssertFalse(store.isMenuBarItemRequested)
     }
 
     func testExplicitMenuBarHideDoesNotDisableProvidersOrPresentation() async {
@@ -398,11 +398,11 @@ final class SettingsIntegrationTests: XCTestCase {
         await appModel.refresh()
         let baselineNotificationEvaluations = notifications.evaluationCount
 
-        model.setMenuBarExtraRequested(false)
+        model.setMenuBarItemRequested(false)
 
         let fetchCount = await codex.fetchCount
-        XCTAssertFalse(store.isMenuBarExtraRequested)
-        XCTAssertFalse(model.isMenuBarExtraInserted)
+        XCTAssertFalse(store.isMenuBarItemRequested)
+        XCTAssertFalse(model.isMenuBarItemVisible)
         XCTAssertEqual(appModel.activeProviderStates.map(\.providerID), [.codex])
         XCTAssertEqual(model.menuBarPresentation.currentlyRenderedProvider, .codex)
         XCTAssertEqual(model.menuBarPresentation.usage?.percentage, 61)
@@ -414,7 +414,7 @@ final class SettingsIntegrationTests: XCTestCase {
         for requested in [false, true] {
             let (store, defaults, suiteName) = makeStore()
             defer { defaults.removePersistentDomain(forName: suiteName) }
-            store.setMenuBarExtraRequested(requested)
+            store.setMenuBarItemRequested(requested)
             _ = SettingsModel(
                 store: store,
                 appModel: makeAppModel(),
@@ -427,7 +427,7 @@ final class SettingsIntegrationTests: XCTestCase {
                 object: nil
             )
 
-            XCTAssertEqual(store.isMenuBarExtraRequested, requested)
+            XCTAssertEqual(store.isMenuBarItemRequested, requested)
         }
     }
 

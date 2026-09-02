@@ -38,7 +38,7 @@ struct MenuBarRecoveryView: View {
                     Text("Open Settings")
                 }
 
-                Button("Show in Menu Bar") {
+                Button("Show Menu Bar Item") {
                     showInMenuBar()
                 }
                 .buttonStyle(.borderedProminent)
@@ -47,91 +47,94 @@ struct MenuBarRecoveryView: View {
         }
         .padding(24)
         .frame(width: 430)
-        .onChange(of: model.isMenuBarExtraInserted) { _, isInserted in
-            if isInserted {
+        .onChange(of: model.isMenuBarItemVisible) { _, isVisible in
+            if isVisible {
                 insertionRestored()
             }
         }
     }
 }
 
-struct MenuBarRecoveryScene: View {
-    @Environment(\.dismiss) private var dismiss
-
-    let model: SettingsModel
-
-    @State private var previousActivationPolicy: NSApplication.ActivationPolicy?
-
-    var body: some View {
-        if AppRuntimeEnvironment.isRunningTests {
-            EmptyView()
-        } else {
-            MenuBarRecoveryView(
-                model: model,
-                showInMenuBar: {
-                    model.setMenuBarExtraRequested(true)
-                },
-                insertionRestored: {
-                    dismiss()
-                },
-                quit: {
-                    NSApplication.shared.terminate(nil)
-                }
-            )
-            .onAppear {
-                beginRecoveryPresentation()
-            }
-            .onDisappear {
-                endRecoveryPresentation()
-            }
-        }
-    }
-
-    private func beginRecoveryPresentation() {
-        guard previousActivationPolicy == nil else { return }
-        let application = NSApplication.shared
-        previousActivationPolicy = application.activationPolicy()
-        if application.activationPolicy() != .regular {
-            application.setActivationPolicy(.regular)
-        }
-        application.activate()
-    }
-
-    private func endRecoveryPresentation() {
-        guard let previousActivationPolicy else { return }
-        let application = NSApplication.shared
-        if application.activationPolicy() != previousActivationPolicy {
-            application.setActivationPolicy(previousActivationPolicy)
-        }
-        self.previousActivationPolicy = nil
-    }
-}
-
 @MainActor
 final class QuotaPulseApplicationDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    typealias ControllerFactory = @MainActor (
+        AppModel,
+        SettingsModel
+    ) -> any StatusItemControllerLifecycle
+
+    private let controllerFactory: ControllerFactory
+    private let terminateApplication: @MainActor () -> Void
+    private var appModel: AppModel?
     private var settingsModel: SettingsModel?
+    private(set) var statusItemController: (any StatusItemControllerLifecycle)?
     private var recoveryWindowController: NSWindowController?
     private var previousActivationPolicy: NSApplication.ActivationPolicy?
 
-    func configure(settingsModel: SettingsModel) {
+    override convenience init() {
+        self.init(
+            controllerFactory: { appModel, settingsModel in
+                StatusItemController(
+                    appModel: appModel,
+                    settingsModel: settingsModel
+                )
+            },
+            terminateApplication: {
+                NSApplication.shared.terminate(nil)
+            }
+        )
+    }
+
+    init(
+        controllerFactory: @escaping ControllerFactory,
+        terminateApplication: @escaping @MainActor () -> Void
+    ) {
+        self.controllerFactory = controllerFactory
+        self.terminateApplication = terminateApplication
+        super.init()
+    }
+
+    func configure(appModel: AppModel, settingsModel: SettingsModel) {
+        self.appModel = appModel
         self.settingsModel = settingsModel
     }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        guard let settingsModel else { return }
-        guard !AppRuntimeEnvironment.isRunningTests else { return }
+        start(
+            launchSource: ApplicationLaunchSourceDetector.current(),
+            shouldCreateStatusItemController: AppRuntimeEnvironment.shouldCreateStatusItemController
+        )
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        statusItemController?.teardown()
+        statusItemController = nil
+    }
+
+    func start(
+        launchSource: ApplicationLaunchSource,
+        shouldCreateStatusItemController: Bool
+    ) {
+        guard let appModel, let settingsModel else { return }
+        guard shouldCreateStatusItemController else { return }
         let disposition = MenuBarRecoveryPolicy.disposition(
-            isMenuBarExtraRequested: settingsModel.store.isMenuBarExtraRequested,
-            launchSource: ApplicationLaunchSourceDetector.current()
+            isMenuBarItemRequested: settingsModel.store.isMenuBarItemRequested,
+            launchSource: launchSource
         )
 
         switch disposition {
         case .normal:
-            break
+            installStatusItemControllerIfNeeded(
+                appModel: appModel,
+                settingsModel: settingsModel
+            )
         case .recovery:
+            installStatusItemControllerIfNeeded(
+                appModel: appModel,
+                settingsModel: settingsModel
+            )
             showRecoveryWindow(settingsModel: settingsModel)
         case .quietExit:
-            NSApplication.shared.terminate(nil)
+            terminateApplication()
         }
     }
 
@@ -141,7 +144,7 @@ final class QuotaPulseApplicationDelegate: NSObject, NSApplicationDelegate, NSWi
     ) -> Bool {
         guard let settingsModel else { return false }
         guard MenuBarRecoveryPolicy.shouldPresentRecoveryOnReopen(
-            isMenuBarExtraInserted: settingsModel.isMenuBarExtraInserted
+            isMenuBarItemVisible: settingsModel.isMenuBarItemVisible
         ) else {
             return false
         }
@@ -152,10 +155,18 @@ final class QuotaPulseApplicationDelegate: NSObject, NSApplicationDelegate, NSWi
     func windowWillClose(_ notification: Notification) {
         endRecoveryPresentation()
         recoveryWindowController = nil
-        guard settingsModel?.isMenuBarExtraInserted == false else { return }
+        guard settingsModel?.isMenuBarItemVisible == false else { return }
         DispatchQueue.main.async {
-            NSApplication.shared.terminate(nil)
+            self.terminateApplication()
         }
+    }
+
+    private func installStatusItemControllerIfNeeded(
+        appModel: AppModel,
+        settingsModel: SettingsModel
+    ) {
+        guard statusItemController == nil else { return }
+        statusItemController = controllerFactory(appModel, settingsModel)
     }
 
     private func showRecoveryWindow(settingsModel: SettingsModel) {
@@ -167,14 +178,14 @@ final class QuotaPulseApplicationDelegate: NSObject, NSApplicationDelegate, NSWi
         beginRecoveryPresentation()
         let rootView = MenuBarRecoveryView(
             model: settingsModel,
-            showInMenuBar: {
-                settingsModel.setMenuBarExtraRequested(true)
+            showInMenuBar: { [weak self] in
+                self?.statusItemController?.showMenuBarItem()
             },
             insertionRestored: { [weak self] in
                 self?.recoveryWindowController?.close()
             },
-            quit: {
-                NSApplication.shared.terminate(nil)
+            quit: { [weak self] in
+                self?.terminateApplication()
             }
         )
         let window = NSWindow(

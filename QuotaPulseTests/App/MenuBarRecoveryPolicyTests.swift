@@ -7,7 +7,7 @@ final class MenuBarRecoveryPolicyTests: XCTestCase {
     func testRequestedExtraUsesNormalPathForExplicitLaunch() {
         XCTAssertEqual(
             MenuBarRecoveryPolicy.disposition(
-                isMenuBarExtraRequested: true,
+                isMenuBarItemRequested: true,
                 launchSource: .explicit
             ),
             .normal
@@ -17,7 +17,7 @@ final class MenuBarRecoveryPolicyTests: XCTestCase {
     func testHiddenExtraUsesRecoveryPathForExplicitLaunch() {
         XCTAssertEqual(
             MenuBarRecoveryPolicy.disposition(
-                isMenuBarExtraRequested: false,
+                isMenuBarItemRequested: false,
                 launchSource: .explicit
             ),
             .recovery
@@ -27,7 +27,7 @@ final class MenuBarRecoveryPolicyTests: XCTestCase {
     func testHiddenExtraExitsQuietlyForLoginItemLaunch() {
         XCTAssertEqual(
             MenuBarRecoveryPolicy.disposition(
-                isMenuBarExtraRequested: false,
+                isMenuBarItemRequested: false,
                 launchSource: .loginItem
             ),
             .quietExit
@@ -37,7 +37,7 @@ final class MenuBarRecoveryPolicyTests: XCTestCase {
     func testRequestedExtraUsesNormalPathForLoginItemLaunch() {
         XCTAssertEqual(
             MenuBarRecoveryPolicy.disposition(
-                isMenuBarExtraRequested: true,
+                isMenuBarItemRequested: true,
                 launchSource: .loginItem
             ),
             .normal
@@ -47,12 +47,12 @@ final class MenuBarRecoveryPolicyTests: XCTestCase {
     func testExplicitReopenPresentsRecoveryOnlyWhileRuntimeInsertionIsFalse() {
         XCTAssertTrue(
             MenuBarRecoveryPolicy.shouldPresentRecoveryOnReopen(
-                isMenuBarExtraInserted: false
+                isMenuBarItemVisible: false
             )
         )
         XCTAssertFalse(
             MenuBarRecoveryPolicy.shouldPresentRecoveryOnReopen(
-                isMenuBarExtraInserted: true
+                isMenuBarItemVisible: true
             )
         )
     }

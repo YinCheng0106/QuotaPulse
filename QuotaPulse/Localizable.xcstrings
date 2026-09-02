@@ -514,6 +514,17 @@
         }
       }
     },
+    "Hidden by QuotaPulse" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "由 QuotaPulse 隱藏"
+          }
+        }
+      }
+    },
     "Host app" : {
       "localizations" : {
         "zh-Hant" : {
@@ -550,6 +561,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "進行中"
+          }
+        }
+      }
+    },
+    "Insertion requested" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已向 macOS 要求顯示"
           }
         }
       }
@@ -611,26 +633,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "登入時啟動"
-          }
-        }
-      }
-    },
-    "Hidden by QuotaPulse" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "由 QuotaPulse 隱藏"
-          }
-        }
-      }
-    },
-    "Insertion requested" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已向 macOS 要求顯示"
           }
         }
       }
@@ -737,6 +739,16 @@
         }
       }
     },
+    "macOS may also control visibility in System Settings." : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 也可能透過「系統設定」控制可見性。"
+          }
+        }
+      }
+    },
     "macOS will ask for permission when the first reminder is ready." : {
       "localizations" : {
         "zh-Hant" : {
@@ -758,6 +770,7 @@
       }
     },
     "Menu bar status" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
@@ -794,22 +807,46 @@
         }
       }
     },
+    "menu-bar.accessibility.disabled %@" : {
+      "comment" : "Status item accessibility label for a disabled provider. The placeholder is the provider product name.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, Disabled"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@，已停用"
+          }
+        }
+      }
+    },
+    "menu-bar.accessibility.unavailable %@" : {
+      "comment" : "Status item accessibility label for an unavailable provider. The placeholder is the provider product name.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@, Unavailable"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@，無法使用"
+          }
+        }
+      }
+    },
     "No" : {
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "否"
-          }
-        }
-      }
-    },
-    "Not inserted by macOS" : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "macOS 目前未插入"
           }
         }
       }
@@ -880,6 +917,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "未偵測到"
+          }
+        }
+      }
+    },
+    "Not inserted by macOS" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS 目前未插入"
           }
         }
       }
@@ -1157,6 +1205,16 @@
         }
       }
     },
+    "QuotaPulse, No providers enabled" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "QuotaPulse，沒有啟用任何提供者"
+          }
+        }
+      }
+    },
     "Refresh failed" : {
       "localizations" : {
         "zh-Hant" : {
@@ -1409,6 +1467,7 @@
       }
     },
     "Show in Menu Bar" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
@@ -1418,7 +1477,18 @@
         }
       }
     },
+    "Show Menu Bar Item" : {
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示選單列項目"
+          }
+        }
+      }
+    },
     "Show QuotaPulse in Menu Bar" : {
+      "extractionState" : "stale",
       "localizations" : {
         "zh-Hant" : {
           "stringUnit" : {
@@ -1444,16 +1514,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "正在顯示先前取得的使用量。"
-          }
-        }
-      }
-    },
-    "Your Show preference remains on. macOS controls actual menu bar visibility." : {
-      "localizations" : {
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "你的顯示偏好仍為開啟；實際選單列可見性由 macOS 控制。"
           }
         }
       }
@@ -1839,6 +1899,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "你的配額週期即將重置。"
+          }
+        }
+      }
+    },
+    "Your Show preference remains on. macOS controls actual menu bar visibility." : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "你的顯示偏好仍為開啟；實際選單列可見性由 macOS 控制。"
           }
         }
       }

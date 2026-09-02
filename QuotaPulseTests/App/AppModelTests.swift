@@ -3,9 +3,9 @@ import XCTest
 
 @MainActor
 final class AppModelTests: XCTestCase {
-    func testHostedUnitTestsDoNotRequestMenuBarInsertion() {
+    func testHostedUnitTestsDoNotCreateStatusItemController() {
         XCTAssertTrue(AppRuntimeEnvironment.isRunningTests)
-        XCTAssertFalse(AppRuntimeEnvironment.shouldInsertMenuBarExtraOnLaunch)
+        XCTAssertFalse(AppRuntimeEnvironment.shouldCreateStatusItemController)
     }
 
     func testLiveDependenciesUseBothSharedProviderAdapters() {

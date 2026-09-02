@@ -70,7 +70,7 @@ xcodebuild \
   build
 ```
 
-Debug builds use the separate `dev.quotapulse.development.app` identity and display as **QuotaPulse Debug**. This keeps development `MenuBarExtra`, Launch at Login, notification-permission, and `UserDefaults` state separate from the production `dev.quotapulse.app` identity. The two configurations intentionally do not share preferences.
+Debug builds use the separate `dev.quotapulse.development.app` identity and display as **QuotaPulse Debug**. This keeps development menu-bar status-item persistence, Launch at Login, notification-permission, and `UserDefaults` state separate from the production `dev.quotapulse.app` identity. The two configurations intentionally do not share preferences.
 
 ## How Codex integration works
 

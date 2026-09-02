@@ -50,9 +50,6 @@ struct DashboardView: View {
         }
         .padding(12)
         .frame(width: 348, height: 500)
-        .onAppear {
-            model.menuDidOpen()
-        }
     }
 
     private func refresh() {

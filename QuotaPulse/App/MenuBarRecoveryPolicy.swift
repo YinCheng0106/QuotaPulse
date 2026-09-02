@@ -13,18 +13,16 @@ enum MenuBarLaunchDisposition: Equatable, Sendable {
 }
 
 struct MenuBarRecoveryPolicy {
-    static let windowID = "menu-bar-recovery"
-
     static func disposition(
-        isMenuBarExtraRequested: Bool,
+        isMenuBarItemRequested: Bool,
         launchSource: ApplicationLaunchSource
     ) -> MenuBarLaunchDisposition {
-        guard !isMenuBarExtraRequested else { return .normal }
+        guard !isMenuBarItemRequested else { return .normal }
         return launchSource == .loginItem ? .quietExit : .recovery
     }
 
-    static func shouldPresentRecoveryOnReopen(isMenuBarExtraInserted: Bool) -> Bool {
-        !isMenuBarExtraInserted
+    static func shouldPresentRecoveryOnReopen(isMenuBarItemVisible: Bool) -> Bool {
+        !isMenuBarItemVisible
     }
 }
 
