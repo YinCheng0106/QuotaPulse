@@ -22,7 +22,7 @@ v0.1 不處理帳號、雲端同步、遠端公告擷取、歷史分析、token 
 
 - macOS 14 以上
 - Swift 6 與 SwiftUI app lifecycle
-- `.window` 樣式的 `MenuBarExtra`
+- 一個 AppKit `NSStatusItem`，以 `NSPopover` 承載既有 SwiftUI dashboard
 - 原生 `Settings` scene
 - `LSUIElement = true`，不顯示 Dock 圖示
 - 使用 `@Observable` 並隔離於 `@MainActor`
@@ -35,9 +35,9 @@ Milestone 1 已確認 macOS 14 作為目前 deployment target。是否支援更�
 ## 3. 系統形狀
 
 ```text
-MenuBarExtra / Settings
-          |
-          v
+NSStatusItem + SwiftUI popover / Settings
+                 |
+                 v
   @MainActor AppModel
           |
           v
@@ -309,27 +309,31 @@ Launch at Login 使用 `ServiceManagement` 的 `SMAppService.mainApp`。Settings
 
 同一個 app target 以 build configuration 分開 macOS bundle identity：Release 保留 production `dev.quotapulse.app`，Debug 使用 `dev.quotapulse.development.app` 並以 `QuotaPulse Debug` 顯示。`PRODUCT_NAME`／executable 維持 `QuotaPulse`，不複製 target。由於 `SMAppService.mainApp`、`UserDefaults.standard`、`UNUserNotificationCenter.current()` 與 macOS 26 Control Center 的第三方 menu bar 狀態都以目前 app identity 為邊界，開發操作只會落在 Debug identity；兩者不共用 preferences，也沒有 App Group entitlement。Debug 因而有自己的首次啟動設定與通知授權，這是刻意隔離而非 migration。
 
-選單列生命週期拆成四種不可混用的狀態。`SettingsStore.isMenuBarExtraRequested` 是 persisted QuotaPulse user intent，新安裝預設為 `true`；`SettingsModel.isMenuBarExtraInserted` 是目前 process 交給 [`MenuBarExtra(isInserted:)`](https://developer.apple.com/documentation/swiftui/menubarextra/init(isinserted:content:label:)) 的 runtime insertion request／binding state；Control Center 另為該 QuotaPulse process 註冊並追蹤 app-status-item host；實際 status item 是否在目前螢幕可見，最後仍由 macOS allowance、選單列可用空間、active display 與 system UI 決定，QuotaPulse 沒有公開 API 可權威查詢。Binding 變成 `false` 只更新 runtime state，因為這可能來自使用者在 macOS 移除項目，也可能來自 macOS 26 對同 bundle 重複 host 的阻擋；System／Scene callback 不得直接寫入 UserDefaults。只有 QuotaPulse Settings toggle 與 recovery action 可以同步保存 intent。
+選單列生命週期拆成四種不可混用的狀態。`SettingsStore.isMenuBarItemRequested` 是 persisted QuotaPulse user intent，新安裝預設為 `true`；`SettingsModel.isMenuBarItemVisible` 是目前 process 由公開 `NSStatusItem.isVisible` 與 KVO 投影的 logical visibility；Control Center 另為該 QuotaPulse process 註冊並追蹤 system host；實際 status item 是否在目前螢幕有像素，最後仍由 macOS allowance、選單列可用空間、active display 與 system UI 決定，QuotaPulse 沒有公開 API 可權威查詢。KVO 變成 `false` 只更新 logical state，不回寫 UserDefaults；只有 QuotaPulse Settings toggle 與 recovery action 可以保存 intent。
 
-Apple 的 [`MenuBarExtra`](https://developer.apple.com/documentation/swiftui/menubarextra) 文件明載：只呈現 menu bar extra 的 App，在使用者移除該 extra 後可能自動終止；`LSUIElement = true` 又使 App 成為不顯示 Dock／App Switcher 的 agent application。P0 基線的實際 OFF 路徑更直接：Settings 先同步保存 `false`、把 insertion binding 設為 `false`，再於下一個 main-queue turn 呼叫 `NSApplication.shared.terminate(nil)`；程序以 status 0 正常終止，沒有 assertion、exception、signal 或 crash report。這不是 crash，但 UX 看起來像 crash，也讓終止成為未說明的 toggle side effect。
+**CURRENT**：production composition root 只建立一個 `StatusItemController`。Controller 建立並持有唯一 `NSStatusItem`，Debug／Release 分別使用 `dev.quotapulse.development.app.primary-status-item` 與 `dev.quotapulse.app.primary-status-item` 作為 stable `autosaveName`，以一個 `.transient` `NSPopover` 和 `NSHostingController` 呈現既有 `DashboardView`；Dashboard、Settings、providers、refresh、notifications 與 shared `AppModel`／`SettingsModel` 都未複製。Status button 以既有 SF Symbol、template image、monospaced compact percentage 或 unavailable placeholder 呈現，並明確設定 VoiceOver label/value。標準 `NSStatusBarButton` 使用 `.imageLeading`、`imageHugsTitle = true` 與 `.scaleProportionallyDown`；item 先以 `NSStatusItem.variableLength` 建立，再於每次內容更新時以 button 的 `intrinsicContentSize.width` 動態設定公開的 `length`，下限為目前 status bar thickness。此作法沒有固定百分比寬度、人工空白、kerning hack 或 custom view。
 
-**CURRENT**：production 仍保留 SwiftUI `MenuBarExtra`，再以輕量 `WindowGroup` 作為非 menu-bar 的持續 Scene；Settings OFF 只保存 hide intent 並要求 runtime removal，不再終止 App。2026-09-01 的受控調查證明，Settings 內 OFF → ON 正常，但 recovery window 在同一個 action 立即關閉會讓 request 尚未傳到 MenuBarExtra 就回落成 runtime false；修正後 recovery action 只提出 request，由共享 model 的 insertion 變更關閉視窗。
+2026-09-02 的受控 macOS 26 實測顯示，將 Debug autosave identity 暫時換成 `dev.quotapulse.development.app.primary-status-item-v2` 仍會隨 ChatGPT visibility 一起被 Control Center blocked／unblocked；KVO 依序變成 `false`／`true`，但 QuotaPulse persisted intent 全程維持 `true`。因此 coupling boundary 位於 `autosaveName` 之上，不採用 v2 migration。Read-only Control Center state 顯示 `com.openai.codex` 的 tracked application locations 含 `dev.quotapulse.development.app`，所以關閉 ChatGPT 會對同一 application group 內的 QuotaPulse host 發出 blocked visibility request。從 Codex 內的 shell 直接執行 Mach-O 時，LaunchServices 同時把 QuotaPulse 的 inferred `parentASN` 記為 ChatGPT；改用 `open` 啟動同一 app bundle 時，QuotaPulse 由 PID 1 啟動、保有自己的 LaunchServices application identity，且沒有該 inferred parent。這組證據支持把 raw executable launch 視為可避免的關聯污染來源，但不能證明或透過公開 API 清除已存在的歷史 Control Center mapping。
 
-**NEXT MIGRATION**：長期決策為 **hybrid**，但尚未實作；下一個獨立任務才把 status-item shell 移到一個 `NSStatusItem` controller，Dashboard／Settings／cards 與既有 observable runtime state 繼續使用 SwiftUI。公開的 `NSStatusItem.isVisible`、KVO 與 `autosaveName` 能提供較可靠的 logical visibility、明確 create/remove ownership 與可完全略過的 XCTest setup；但它不提供 Control Center 私有 preference、實際 pixel visibility，也不會改變 bundle ownership。完整比較、受控證據與 migration gate 見 `docs/MENU_BAR_ARCHITECTURE_INVESTIGATION.md`。本次調查不執行 migration。
+Controller 是選單列 shell 的唯一 observation owner：一條 Swift Observation path 讀取 persisted intent 與 `MenuBarPresentation`，一條 KVO observation 讀取 system logical visibility。它記住最後一次已套用的 intent，因此 presentation 更新不會把使用者或 macOS 已移除的 item 反覆插回；recovery action 則可明確 force-show，即使 persisted intent 原本已是 `true`。Open popover 只呼叫既有 `AppModel.menuDidOpen()`；沒有新增 timer、polling、network、scheduler 或 provider I/O。Teardown 會取消 observation、清除 target/action、關閉 popover並移除同一個 status item，且可重複安全呼叫。
 
-原生系統移除仍會把 runtime insertion 設為 `false`；QuotaPulse 不反覆插回，也不覆寫 Control Center 的 system-managed 狀態。Settings 的主 toggle 顯示 persisted intent，旁邊另列 runtime insertion 狀態：OFF 是「由 QuotaPulse 隱藏」；intent ON 且 runtime true 是已要求插入；intent ON 但 runtime false 則顯示 macOS 尚未插入，且保留 persisted true。這仍不宣稱 status item 實際可見。正常 Quit、Xcode Stop、Scene teardown 與 system callback 都不會改寫 persisted intent。
+`QuotaPulseTests` 仍是 app-hosted XCTest，但 `AppRuntimeEnvironment.shouldCreateStatusItemController` 在 XCTest 為 `false`，app delegate 在任何 controller factory 呼叫前就停止 production setup。因此並行測試不建立 `StatusItemController` 或 `NSStatusItem`，scheme 已恢復 `parallelizable = YES`。Controller-level tests 以 injected fake status item／popover 驗證 create-once、hide/show、system-removal projection、recovery、100 次開關、teardown 與 accessibility；直接測試 `SettingsStore` 的案例繼續使用 UUID test suites 並在結束時移除 domain。Control Center read-only log 可作為零 test-host status item 的附加 system evidence，但不是一般 unit assertion。
 
-`QuotaPulseTests` 是 app-hosted XCTest。`XCTestConfigurationFilePath` 讓 session insertion 初值固定為 `false`，delegate 不執行 production recovery，binding callback 也不寫 persisted intent；但 2026-09-01 的 Control Center log 證明 SwiftUI 仍會為每個 test-host process 註冊 MenuBarExtra host，且第一個 host 曾短暫從 visibility true 轉成 false。Test scheme 因此固定 `parallelizable = NO`，避免同 identity 的重複並行 host。這只是 containment，不得再宣稱 XCTest 建立零 status-item host；完整隔離屬於 hybrid migration 的 acceptance gate，屆時 tests 必須完全略過 `NSStatusItem` controller creation。直接測試 `SettingsStore` 的案例繼續使用 UUID test suites 並在結束時移除 domain。
+明確重新開啟提供隱藏 App 的可達路徑。requested 為 `false` 且由 Finder／Spotlight／`open` 明確啟動時，delegate 先建立一個 hidden controller，再以 SwiftUI-hosted `NSWindow` 顯示最小復原介面；已在背景執行且 logical visibility 為 `false` 時，公開的 `applicationShouldHandleReopen` callback 也顯示同一介面。復原期間暫時把 `NSApplication.ActivationPolicy` 從 accessory 改為 regular，讓視窗與 Dock 可到達；Show action 同步保存 true 並 force-show 同一個 status item，復原視窗在 shared logical state 變成 visible 後關閉，之後恢復 accessory。使用者在仍隱藏時關閉復原視窗會明確、正常退出，避免留下不可達 process。requested 為 `false` 且 `kAEOpenApplication` Apple Event 含公開的 `keyAELaunchedAsLogInItem` 時，在建立 controller 前安靜退出；requested 為 `true` 的 login-item launch 則走正常建立流程。若未來產品要求隱藏時仍在登入後監看 reset，必須另行改變這項政策，不能由 Milestone C 或未實作的 Reset Intelligence 偷渡。
 
-明確重新開啟提供隱藏 App 的可達路徑。requested 為 `false` 且由 Finder／Spotlight／`open` 明確啟動時，delegate 以 SwiftUI-hosted `NSWindow` 顯示最小復原介面；已在背景執行且 runtime insertion 為 `false` 時，公開的 `applicationShouldHandleReopen` callback 也顯示同一介面。復原期間暫時把 `NSApplication.ActivationPolicy` 從 accessory 改為 regular，讓視窗與 Dock 可到達；Show action 同步保存 true 並要求插入，但不在同一個 action 立即關閉視窗，改由共享 model 的 insertion 變更關閉，之後恢復 accessory。使用者在仍隱藏時關閉復原視窗會明確、正常退出，避免留下不可達 process。requested 為 `false` 且 `kAEOpenApplication` Apple Event 含公開的 `keyAELaunchedAsLogInItem` 時也安靜退出：目前隱藏狀態沒有必要在登入後永久常駐；requested 為 `true` 的 login-item launch 則走正常插入流程。若未來產品要求隱藏時仍在登入後監看 reset，必須另行改變這項政策，不能由 Milestone C 或未實作的 Reset Intelligence 偷渡。
-
-macOS 26 的 Control Center／「系統設定」→「選單列」仍可在 requested 為 `true` 時阻止實際顯示。QuotaPulse 不猜測該 system-managed allowance、不反覆切換 binding、不寫入 `group.com.apple.controlcenter` 或其他系統偏好，也不使用 private API 或 `defaults` workaround。復原介面只誠實提示使用者必要時到系統設定允許 QuotaPulse；自動測試只能驗證 intent、runtime binding、scene／launch policy，不能宣稱驗證 Control Center allowance 或螢幕上的實際可見性。
+macOS 26 的 Control Center／「系統設定」→「選單列」仍可在 requested 為 `true` 時阻止實際顯示。QuotaPulse 不猜測該 system-managed allowance、不反覆切換 `isVisible`、不寫入 `group.com.apple.controlcenter` 或其他系統偏好，也不使用 private API 或 `defaults` workaround。復原介面只誠實提示使用者必要時到系統設定允許 QuotaPulse；自動測試只能驗證 intent、logical visibility、controller／launch policy，不能宣稱驗證 Control Center allowance 或螢幕上的實際可見性。
 
 Provider 停用代表「暫時排除於 QuotaPulse 主動監看」，不是刪除 provider。`UsageService` 仍保留 provider 順序與 normalized `.disabled` state，但跳過其 `fetchUsage()`；Dashboard 不顯示 disabled placeholder，其他 providers 繼續依序刷新。全數停用時只顯示一個「No providers enabled」empty state 與原生 `SettingsLink`，Settings 的 toggles 仍可管理並跨 restart 保存。重新啟用不需重啟 App，也不刪除 provider configuration；它會先 re-baseline reset detector，再要求一次共用 refresh，仍經 `RefreshCoordinator` 合併。
 
 背景刷新維持固定約 15 分鐘。動態 interval 會介入已完成的 deadline、retry backoff、sleep/wake 與單一 scheduled task invariant；v0.1 不為 5／15／30 分鐘選項擴大該架構。Settings 只顯示目前固定 cadence。
 
 Claude Code 在 Settings 明確標為 Experimental／Unverified，只有 enable／disable，沒有 bridge 安裝或設定。不得使用 iCloud key-value storage，也不得保存 provider 憑證。
+
+## v0.2 Hybrid migration final status
+
+2026-09-02 的 clean macOS user account 以 Finder／LaunchServices 正常啟動 Release app bundle，確認 QuotaPulse 與 ChatGPT 是獨立的選單列應用程式；隱藏任一者不會影響另一者。主要開發帳號曾觀察到的 ChatGPT → QuotaPulse cascade，分類為歷史、使用者範圍的 macOS Control Center stale application association，源自過往非典型開發／測試啟動拓撲，不是目前 QuotaPulse Release 架構缺陷，也不是正常使用者應遇到的產品行為。不要以程式清除或修復該狀態，不要改 bundle identifier、`autosaveName` 或使用 private Control Center API；人工測試應從 Finder、Spotlight 或 LaunchServices／`open` 啟動 `.app`，不要直接執行 Mach-O。
+
+**Milestone A — COMPLETE / frozen. Milestone B — COMPLETE. Milestone C — NEXT / NOT STARTED.** Automated XCTest、Debug／Release builds、zero status-item host、recovery／reopen、compact width 與 manual acceptance 均已分別驗證；本次不實作 Milestone C。
 
 ## 11. Compatibility Diagnostics
 
@@ -369,7 +373,7 @@ Static trusted feed
 
 Revision 更新以同 ID 的較高 revision 取代舊表示；`correction` / `retraction` 只可單層指向同 provider 的普通原始 event，避免 chain/cycle。未來 notification dedup 必須使用 event ID + revision，並另外定義已送出 history 的 correction/retraction policy。本階段不實作通知行為。
 
-`SettingsStore` 的純本機 v0.2 persisted presentation contract 是 `remaining` / `used`（預設 `remaining`）與 optional pinned provider raw value。`SettingsModel` 在啟動時建立這兩項偏好的唯一 runtime-observable projection；Settings action 會同步保存到 `SettingsStore` 並更新同一個 model。`MenuBarExtra` 使用 `init(isInserted:content:label:)` 的 custom-label overload；label 與 content 都在各自持續存在的 `View.body` 讀取該 model，不把 UserDefaults persistence 或 Scene closure 捕捉的 value 當成 reactive state。狀態列 label 以明確的 `HStack` 組合 icon 與單一 compact metric，不使用會在 MenuBarExtra 環境解析成 icon-only 的 SwiftUI `Label`。`UsagePresentation` 是唯一的 display projection：它從同一個 normalized `UsageWindow` 導出 rounded remaining 或 used percentage，絕不寫回 domain、reset detector 或 notification policy。Dashboard 的主要 percentage、VoiceOver value 與選單列共享它；進度與通知仍保留既有 used／remaining semantics。`MenuBarPresentation` 明確區分 persisted pinned provider、selected provider、currently rendered provider 與 renderability：known explicit pin 只呈現該 provider 的可用 snapshot；loading/stale cached snapshot 可保留一個數字，disabled、unavailable、unknown future pin 或沒有可用資料時顯示固定 unavailable placeholder，絕不暗中切到另一個 provider。無 pin 時只依既有 provider order 選擇第一個 enabled/renderable provider，且不寫回 preference。General／Providers／Notifications 已是唯一 Settings IA。
+`SettingsStore` 的純本機 v0.2 persisted presentation contract 是 `remaining` / `used`（預設 `remaining`）與 optional pinned provider raw value。`SettingsModel` 在啟動時建立這兩項偏好的唯一 runtime-observable projection；Settings action 會同步保存到 `SettingsStore` 並更新同一個 model。`StatusItemController` 直接觀察該 shared model，更新 standard status button 的 icon、compact metric 與 accessibility metadata；SwiftUI popover content 也使用同一份 models，不複製 state。`UsagePresentation` 是唯一的 display projection：它從同一個 normalized `UsageWindow` 導出 rounded remaining 或 used percentage，絕不寫回 domain、reset detector 或 notification policy。Dashboard 的主要 percentage、VoiceOver value 與選單列共享它；進度與通知仍保留既有 used／remaining semantics。`MenuBarPresentation` 明確區分 persisted pinned provider、selected provider、currently rendered provider 與 renderability：known explicit pin 只呈現該 provider 的可用 snapshot；loading/stale cached snapshot 可保留一個數字，disabled、unavailable、unknown future pin 或沒有可用資料時顯示固定 unavailable placeholder，絕不暗中切到另一個 provider。無 pin 時只依既有 provider order 選擇第一個 enabled/renderable provider，且不寫回 preference。General／Providers／Notifications 已是唯一 Settings IA。
 
 不得將 social-media credential 放入 App，不得在 App 內爬取 X/Twitter 或呼叫 AI model。static feed 與未來 request 不得含本機 usage snapshot、prompt、repository、path、session、帳號或程式開發歷史。詳細 schema、governance、limits、migration 與 privacy policy 見 [docs/RESET_INTELLIGENCE_FEED.md](docs/RESET_INTELLIGENCE_FEED.md)。
 
@@ -417,6 +421,7 @@ QuotaPulse/
 └── Features/
     ├── MenuBar/
     │   ├── DashboardView.swift
+    │   ├── StatusItemController.swift
     │   ├── ProviderCardView.swift
     │   ├── UsageWindowRow.swift
     │   └── ProviderStateView.swift
@@ -464,7 +469,7 @@ Milestone 1 自動測試涵蓋：
 - 最新刷新失敗時保留上一份有效的記憶體內 snapshot 與成功更新時間
 - compatibility diagnostics 的 healthy、runtime missing、disabled、connection failure、usage unavailable、last-refresh failure、provider independence 與 current-state bound
 - Copy Diagnostics allowlist 與刻意含 credential／prompt／session／email／private path／raw JSON 的 privacy regression fixtures
-- menu bar extra 新安裝預設、requested-state persistence、runtime callback 不覆寫 intent、隱藏時 provider／presentation lifecycle 保持獨立，以及 explicit／reopen／login-item recovery policy
+- status item 新安裝預設、requested-state persistence、KVO callback 不覆寫 intent、create-once／100 次 hide-show／teardown、XCTest no-create boundary，以及 explicit／reopen／login-item recovery policy
 
 後續 provider 工作還需要測試 app-server request/response correlation、正式 Claude status-line fixtures、bridge atomic write 與 permissions、existing-command composition、settings migration，以及各支援版本與 authentication modes 的 live behavior。
 

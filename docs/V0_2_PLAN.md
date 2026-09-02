@@ -19,7 +19,7 @@ v0.2 的最小高價值目標是讓 QuotaPulse 成為 **reset-aware AI coding qu
 | Milestone | 狀態 |
 | --- | --- |
 | A — contract freeze | **COMPLETE / frozen**；trusted feed、presentation preference、pinned-provider 與 onboarding persistence contracts 已由 fixtures 與 deterministic tests 鎖定。 |
-| B — Display + Settings | **Implementation complete through the current SwiftUI shell**；final acceptance 仍待 Hybrid NSStatusItem migration、XCTest zero-status-item-host gate 與 final runtime/manual validation。 |
+| B — Display + Settings | **COMPLETE**；production 使用單一 `NSStatusItem` controller，parallel XCTest zero-status-item-host gate、Debug／Release build identity、recovery／reopen、compact width 與 clean-user Release manual acceptance 均已完成。 |
 | C — Onboarding | **NOT STARTED**；目前 scope 暫停，不能由本 checkpoint 偷渡開始。 |
 
 ## 已交付的 v0.1.1 基準
@@ -32,7 +32,7 @@ v0.2 的最小高價值目標是讓 QuotaPulse 成為 **reset-aware AI coding qu
 | Refresh lifecycle | 已完成 | `AppModel` 保有單一 provider refresh lifecycle；不得為 v0.2 另建 provider polling loop。 |
 | Reset reminders 與 completed-reset notification | 已完成 | 已有本機 detector、重啟去重與通知交付路徑；只維護 regression 與 opt-in 系統送達證據。 |
 | Local reset detection | 已完成 | 僅接受新鮮 `.available` 非 mock snapshot、強 cycle evidence；百分比下降本身不算 reset。 |
-| MenuBar recovery | Milestone B P0 修正已實作，B 仍未完成 | OFF 改為隱藏 status item 並保持目前 process；explicit reopen 提供 recovery，hidden login-item launch 安靜退出。保留 persisted intent、runtime insertion 與 system visibility 三者區分；不以重插入 loop、private Control Center state 或 bundle ID workaround 處理。 |
+| MenuBar recovery | **Milestone B COMPLETE** | OFF 改為隱藏 status item 並保持目前 process；explicit reopen 提供 recovery，hidden login-item launch 安靜退出。保留 persisted intent、logical visibility 與 system visibility 三者區分；不以重插入 loop、private Control Center state 或 bundle ID workaround 處理。 |
 | Debug/Release identity isolation | 已完成 | 不更改 bundle identifier；每次 artifact 驗證另行確認實際 build identity。 |
 | Production App Icon 與英／繁中本地化 | 已完成 | 只隨新增 UI 補齊字串與可近用性，不重開 branding 專案。 |
 | Privacy-safe Diagnostics | 已完成 | 已有 allowlisted Copy Diagnostics；每個新 network/provider state 必須擴充 allowlist 與 regression test。 |
@@ -92,7 +92,7 @@ App 端必須有大小上限、ETag、expiry、last-known-good cache、離線安
 
 **驗收條件**：pinned provider 不可用時維持該選擇並顯示 unavailable，絕不暗中換 provider；所有 enabled provider 順序仍穩定；used/remaining 文字、VoiceOver、英／繁中與窄寬／notch 環境通過檢查；自動化測試證明 presentation 不改變 domain percentage、detector 或通知 threshold。
 
-**Milestone B implementation（2026-09-01）**：已以 `UsagePresentation` 接入 Dashboard 主 percentage、VoiceOver 與單一選單列 metric；`MenuBarPresentation` 明確分離 persisted pin 與 currently rendered provider，unknown／disabled／unavailable pin 不會 fallback。人工驗證發現 Scene closure 曾捕捉 presentation value，導致 Settings 已持久化但選單列 label 未失效；修正後由共用 `SettingsModel` 擁有 runtime-observable presentation projection，label／content 在各自 `View.body` 直接觀察它。Settings 已用原生 `TabView` 拆為 General／Providers／Notifications，且不新增 network、timer、scheduler 或 provider I/O。後續 P0 又確認 Settings OFF 的舊路徑會明確正常終止 App；修正後以持續 Scene 保留 hidden process 與既有背景責任，explicit reopen 可復原，hidden login-item launch 則不建立 invisible process。Milestone B 在完整 menu lifecycle、light/dark、keyboard、VoiceOver 與真實選單列人工驗證完成前仍為未完成；Milestone C 暫停，不得提前開始。
+**Milestone B final acceptance（2026-09-02）**：已以 `UsagePresentation` 接入 Dashboard 主 percentage、VoiceOver 與單一選單列 metric；`MenuBarPresentation` 明確分離 persisted pin 與 currently rendered provider，unknown／disabled／unavailable pin 不會 fallback。Production shell 已由 `MenuBarExtra` 遷移為一個 AppKit `NSStatusItem` controller，以 transient popover 承載原有 SwiftUI dashboard，並重用同一份 `AppModel`／`SettingsModel`。Controller 直接處理 create-once、stable autosave identity、hide/show、KVO logical visibility、recovery force-show、compact label 與 accessibility metadata；Settings OFF 不終止 process，hidden login-item launch 則在建立 item 前安靜退出。App-hosted XCTest 完全略過 controller 建立，scheme 使用 parallel execution；controller fake tests 與 read-only Control Center log 證明自動測試 host 不建立 status item。clean-user Release manual acceptance 證明 QuotaPulse 與 ChatGPT 獨立顯示且互不隱藏。這些改動沒有新增 network、timer、scheduler、provider I/O 或 Milestone C scope。主要開發帳號的 cascade 僅記錄為歷史 user-scoped Control Center stale state，不是 Release 架構缺陷，也不以程式修復。
 
 ### B. 可略過的首次啟動與可重看說明 — M
 
@@ -126,7 +126,7 @@ App 端必須有大小上限、ETag、expiry、last-known-good cache、離線安
 
 1. **Milestone A — v0.2 contract freeze**：先定義 feed schema/governance、display preference 的純 presentation boundary、Settings IA 與 onboarding state model；以 fixtures/tests 鎖定既有 detector/notification 不變。這先消除之後 schema 與設定 migration 的返工。
 2. **Milestone B — Display + Settings**：實作 used/remaining、pinned provider、General/Providers/Notifications，完成 menu width/VoiceOver regression。這些純本機變更會提供 onboarding 的可設定目標。
-3. **Milestone C — Onboarding（暫停）**：只有 Milestone B 的 P0 menu lifecycle 與剩餘人工驗證完成、並由使用者明確恢復 scope 後，才可重用 Milestone B 的 preferences 與既有 diagnostics snapshot；目前不得開始。
+3. **Milestone C — Onboarding（NEXT / NOT STARTED）**：Milestone B 已完成；只有使用者明確恢復 scope 後，才可重用 Milestone B 的 preferences 與既有 diagnostics snapshot。本次不實作 Milestone C。
 4. **Milestone D — Feed governance and reader**：先建立人工審核 static feed、schema validation、fixture、cache/ETag/expiry 與單一 coalesced fetch owner，再接 UI。先讓資料鏈可靠，才開始使用者可見的解釋。
 5. **Milestone E — Conservative event/local matching and release evidence**：最後做 verified-event + fresh-local-snapshot 的可選文字與通知，並完成 no-upload、correction/retraction、notification dedup、offline 和低資源 soak 驗證。這避免 feed 還未可追溯時就誤導使用者。
 

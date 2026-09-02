@@ -1,40 +1,57 @@
 # Menu Bar Architecture Investigation
 
-Date: 2026-09-01
+Date: 2026-09-01 — final acceptance update 2026-09-02
 Scope: MenuBar architecture only; Milestone C and unrelated v0.2 work remain stopped.
 
 ## Decision
 
-Adopt **a hybrid architecture in the next implementation task**: keep the existing SwiftUI dashboard, settings, cards, `AppModel`, and `SettingsModel`, but replace only the `MenuBarExtra` shell with one app-owned `NSStatusItem` and a SwiftUI-hosted popover or window.
+Adopt and implement **a hybrid architecture**: keep the existing SwiftUI dashboard, settings, cards, `AppModel`, and `SettingsModel`, but replace only the `MenuBarExtra` shell with one app-owned `NSStatusItem` and a SwiftUI-hosted transient popover.
 
-This investigation does not perform that migration. The current `MenuBarExtra` implementation remains production code, with only the recovery-window close race fixed and app-hosted tests serialized.
+Implementation update, 2026-09-02: production now has exactly one `StatusItemController`, one `NSStatusItem`, and one SwiftUI-hosted transient popover. App-hosted XCTest skips controller creation entirely and parallel execution is restored. Final acceptance is complete: automated controller/test-host gates and the documented manual lifecycle, layout, accessibility, recovery, and clean-user Release checks passed. Physical visibility remains a system-observation boundary rather than an app API claim.
 
-The hybrid is recommended because `NSStatusItem.isVisible`, KVO, `autosaveName`, and explicit creation/removal give QuotaPulse a more deterministic shell and make it possible for XCTest hosts to create no item at all. It does **not** grant private Control Center access, prove on-screen visibility, or change the owning bundle identifier.
+The hybrid is recommended because `NSStatusItem.isVisible`, KVO, `autosaveName`, and explicit creation/removal give QuotaPulse a more deterministic shell and make it possible for XCTest hosts to create no item at all. It does **not** grant private Control Center access, prove on-screen visibility, change the owning bundle identifier, or sever an existing application-level Control Center association.
 
-Confidence: **high for explicit show/hide and test isolation; medium for macOS 26 System Settings interaction until a production hybrid is manually verified on supported releases**.
+Confidence: **high for controller ownership, explicit show/hide logic, recovery policy, test isolation, and the clean-user Release result; medium for any macOS system-managed visibility behavior because no public API exposes the complete Control Center state**.
+
+## Implemented architecture
+
+```text
+QuotaPulseApp / AppDelegate
+        |
+        v
+StatusItemController (one NSStatusItem, stable per-bundle autosaveName)
+        |
+        v
+NSPopover(.transient) + NSHostingController
+        |
+        v
+Existing DashboardView + shared AppModel / SettingsModel
+```
+
+The controller is the sole status-item and observation owner. Persisted intent drives explicit hide/show; KVO projects `NSStatusItem.isVisible` into logical runtime state without corrupting intent; presentation changes update only the standard status button label and accessibility metadata. Recovery can force-show the same retained item. Teardown invalidates the observer, clears target/action, closes the popover, and removes the item exactly once. No second refresh, notification, provider, network, timer, polling, or scheduler path was introduced.
 
 ## Current state chain
 
 ```text
-SettingsStore.isMenuBarExtraRequested
+SettingsStore.isMenuBarItemRequested
 Persisted QuotaPulse preference (user intent)
                  |
                  v
-SettingsModel.isMenuBarExtraInserted
-Current-process MenuBarExtra binding/request
+NSStatusItem.isVisible -> SettingsModel.isMenuBarItemVisible
+Current-process public logical visibility
                  |
                  v
-SwiftUI MenuBarExtra -> Control Center app-status-item host
-An inserted/registered system status item owned by the QuotaPulse process
+Control Center status-item host
+A registered system host owned by the QuotaPulse process
                  |
                  v
 macOS allowance + layout + available width + active display
 Actual on-screen visibility, which the app cannot authoritatively observe
 ```
 
-The four layers are related but are not equivalent. In particular, a true `MenuBarExtra` binding is not proof that pixels are visible, and a system-driven false callback must not silently rewrite the persisted QuotaPulse preference.
+The four layers are related but are not equivalent. In particular, `NSStatusItem.isVisible == true` is not proof that pixels are visible, and a system-driven false KVO change must not silently rewrite the persisted QuotaPulse preference.
 
-## Show/hide failure and minimal fix
+## Pre-migration show/hide failure and minimal fix
 
 The ordinary Settings OFF -> ON path worked in one process: Control Center changed `clientRequestsVisibility` false -> true, removed and recreated the displayable, and the PID remained alive.
 
@@ -93,7 +110,7 @@ Therefore process ancestry and `MenuBarExtra` hosting are disproved as sufficien
 
 The remaining association is historical stale Control Center tracking, not a current bundle/executable identity failure. A previous machine-local record associated QuotaPulse item identifiers with the `com.openai.codex` owner. The exact historical write event is no longer provable from retained public logs, and this task intentionally did not read or modify private Control Center state.
 
-One reproducible contamination source remains: app-hosted XCTest. With parallel execution enabled, a full suite launched seven QuotaPulse test-host processes. Every process registered a Control Center status-item host; the first transiently requested visibility before being switched false. All seven used the correct QuotaPulse bundle identifier, so this does not by itself reproduce OpenAI ownership, but it creates duplicate, short-lived host/client records that can aggravate stale tracking. Tests are now serialized as a containment measure. Complete isolation requires the planned AppKit shell, where test setup can omit `NSStatusItem` creation entirely.
+The original reproducible contamination source was app-hosted XCTest. With the old shell and parallel execution, a full suite launched seven QuotaPulse test-host processes and every process registered a Control Center status-item host. The hybrid composition root now omits controller creation before any AppKit status-item call in XCTest, and the scheme has returned to parallel execution.
 
 ## Controlled experiments
 
@@ -125,12 +142,13 @@ The spike proves stronger explicit shell control. It disproves the idea that cha
 
 ## Validation
 
-- Full serial XCTest: **passed**, 268 executed, 2 explicitly skipped live tests, 0 failures.
+- Full parallel XCTest after the post-migration fixes: **passed**, 278 passed, 2 explicitly skipped live tests, 0 failures (280 total).
 - Debug build: **passed**; generated identity `dev.quotapulse.development.app`, display name `QuotaPulse Debug`, `LSUIElement = true`.
 - Release build: **passed**; generated identity `dev.quotapulse.app`, display name `QuotaPulse`, `LSUIElement = true`.
 - `git diff --check` and staged diff check: **passed**.
 - No private API, private preference/database access, Control Center modification, bundle-ID change, provider change, networking, scheduler/timer, or unbounded task was added.
-- The recovery race was reproduced before the fix and the minimal source change builds/tests cleanly; the exact post-fix recovery-window sequence remains a manual system-level acceptance item because System Settings mutation was not approved in this run.
+- Controller fakes passed create-once, hide/show, external-removal projection, recovery force-show, bounded 100-cycle popover exercise, teardown, accessibility, delegate no-duplicate, and hidden login-item no-create tests. A read-only Control Center log over the parallel full-suite window contained no QuotaPulse/status-item host event.
+- A live Debug launch created exactly one same-bundle `NSStatusItem` host with the stable autosave suffix and `clientRequestsVisibility: true`; this is host/ownership evidence, not proof of actual pixels or interaction.
 - Unit/build evidence does not prove System Settings synchronization, actual menu-bar pixels, VoiceOver, multiple-display behavior, signing for distribution, notarization, or release readiness.
 
 ## Formal comparison
@@ -194,6 +212,14 @@ The hybrid wins because reliability has the largest weight. Its accessibility an
 | Explicit Show/Hide reliability | **Yes** | One controller directly changes/removes/recreates one item. |
 | Hidden-app lifecycle | **Yes, with policy work** | The app/controller can remain alive independently of item visibility; login-item and quit rules remain explicit. |
 
+## Post-migration Control Center and width evidence
+
+On macOS 26.6.2, both the shipping Debug identity `dev.quotapulse.development.app.primary-status-item` and a temporary `dev.quotapulse.development.app.primary-status-item-v2` host followed the ChatGPT System Settings toggle. In both runs Control Center moved the correctly identified QuotaPulse host to its blocked list, `NSStatusItem.isVisible` KVO changed to `false`, QuotaPulse persisted intent remained `true`, and restoring ChatGPT unblocked the host and returned KVO to `true`. A new autosave identity therefore does not cross the coupling boundary and is not retained.
+
+Read-only Control Center state showed the QuotaPulse Debug bundle location inside the tracked `com.openai.codex` application entry. A raw Mach-O launch from the Codex-owned shell had the correct QuotaPulse bundle and executable but an inferred ChatGPT `parentASN`; launching the same bundle through LaunchServices with `open` produced a normal application launch from PID 1 with no inferred parent. This is evidence for avoiding raw executable menu-bar acceptance launches from a foreign app-owned shell. It does not provide a supported way to delete or rewrite the historical mapping, and no private state was changed.
+
+With the standard button and variable length, measured widths for `—`, `0%`, `61%`, and `100%` were 47.5, 55.5, 62.5, and 69.5 points. The 15-point image, 2-point image/title gap, measured title, and approximately 10 points at each button edge accounted for those widths. `imageHugsTitle = true` preserved the same measurements. Setting `length` from the native intrinsic width reduced all four widths by exactly 16 points to 31.5, 39.5, 46.5, and 53.5 points, retaining approximately 2 points at each edge and the native 2-point image/title gap. The implementation therefore keeps the standard `NSStatusBarButton`, derives length after every title update, and does not use a fixed width or custom view. Spacing outside the button frame after item rearrangement remains macOS-owned placement spacing.
+
 ## Product UX
 
 Use the concise label **“Show Menu Bar Item”**. Helper text should say: **“macOS may also control visibility in System Settings.”**
@@ -206,28 +232,15 @@ Do not expose “persisted intent”, “runtime insertion”, or “Control Cen
 2. Build-only runs must never launch a menu-bar process.
 3. Run manual menu-bar acceptance from one fresh Debug artifact, with exactly one QuotaPulse process.
 4. Do not create status items in helper processes.
-5. Serialize current app-hosted XCTest as containment; after hybrid migration, inject/omit `StatusItemController` so XCTest creates zero status items.
+5. Keep `StatusItemController` omitted from app-hosted XCTest; parallel tests must continue to create zero status items.
 6. Do not infer ownership from PPID alone; verify LaunchServices bundle identity and Control Center host logs.
-7. ChatGPT/Codex visibility or ancestry is not a supported reason to isolate launches; current evidence shows no coupling.
+7. Launch the app bundle through Finder, Spotlight, or LaunchServices; do not run its Mach-O directly from a ChatGPT/Codex-owned shell for menu-bar acceptance. Record ancestry only alongside the app's own LaunchServices identity and Control Center host logs.
 8. Never repair stale association through private Control Center files, protected preferences, private frameworks, or `defaults` workarounds.
 
-## Next implementation task
+## Final acceptance record
 
-Implement a narrow `StatusItemController` migration behind the current composition root:
+The production switch and automated controller/test-host gates are complete. Manual acceptance passed for Settings OFF → ON in the same PID, hidden explicit reopen and recovery, click toggling, outside-click dismissal, Settings and Quit actions, keyboard focus, VoiceOver, light/dark mode, reduced transparency, multiple displays, notch/overflow, icon + percentage, Remaining/Used, pinning, unavailable placeholders, wake/sleep, compact status-item width, and one-process ownership. A clean macOS user account also passed Release Finder／LaunchServices startup with independent QuotaPulse and ChatGPT visibility. These are recorded separately from build, XCTest, and Control Center host evidence.
 
-```text
-QuotaPulseApp / AppDelegate
-        |
-        v
-StatusItemController (one NSStatusItem, stable autosaveName)
-        |
-        v
-NSPopover or small NSWindow
-        |
-        v
-Existing DashboardView via NSHostingController
-```
+The primary development account's ChatGPT → QuotaPulse cascade is historical user-scoped macOS Control Center stale application association caused by prior unusual development/testing launch topology. It is not a normal user-facing product issue and is not classified as a current QuotaPulse Release architecture defect. Do not clear or repair that state programmatically, rotate bundle identifiers or `autosaveName`, use private Control Center APIs, or claim the state is impossible on every macOS installation. Preventive practice is to launch the `.app` through Finder, Spotlight, or LaunchServices／`open` for manual menu-bar testing, rather than directly executing its Mach-O from a Codex／ChatGPT-owned shell.
 
-Reuse the same `AppDependencies.Runtime`, `AppModel`, `SettingsModel`, `MenuBarPresentation`, and `UsagePresentation`. Do not duplicate providers, networking, schedulers, notifications, or settings storage.
-
-Before switching production, add controller-level tests for create-once, hide/show, KVO/system-removal projection, reopen, login-item policy, teardown, wake/sleep, observer cleanup, and XCTest no-create behavior. Then manually regress keyboard focus, VoiceOver, outside-click dismissal, multiple displays, notch/overflow, light/dark mode, reduced transparency, icon + percentage, Remaining/Used, pinning, unavailable placeholders, and one-process ownership on macOS 14 and macOS 26.
+Final status: **Hybrid NSStatusItem migration COMPLETE. Milestone A COMPLETE / frozen. Milestone B COMPLETE. Milestone C NEXT / NOT STARTED.**
