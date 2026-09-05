@@ -4,6 +4,12 @@
 
 QuotaPulse is a lightweight native macOS menu bar utility for monitoring AI coding-agent quota usage and reset times.
 
+## Documentation
+
+Documentation, installation guides, privacy details, and troubleshooting:
+
+**https://quotapulse.yincheng.app**
+
 ## Screenshots
 
 Real application screenshots are intentionally deferred and will be added later. The current README does not link to placeholder images.
@@ -35,11 +41,20 @@ ChatGPT.app support relies on an undocumented packaging detail: the bundled Code
 
 ## Installation
 
-### Downloaded builds
+### Download the beta
 
-The v0.1.1 GitHub release is source-only. No downloadable QuotaPulse app, DMG, or package is approved for that release.
+QuotaPulse v0.2.0 Beta 1 is the first publicly downloadable release.
 
-Developer ID signing, Hardened Runtime validation, notarization, and binary-distribution checks are intentionally deferred. A custom Homebrew Tap is also only a possible future installation method; no official Homebrew Cask is available today.
+Download the latest DMG from the [GitHub Releases](https://github.com/YinCheng0106/QuotaPulse/releases) page.
+
+1. Download the latest `.dmg`.
+2. Open the disk image.
+3. Drag QuotaPulse into Applications.
+4. Launch QuotaPulse from Applications.
+
+For detailed installation and first-launch instructions, see the [QuotaPulse documentation](https://quotapulse.yincheng.app/docs/installation).
+
+> The current beta is not signed or notarized with an Apple Developer ID. macOS may require additional approval on first launch.
 
 ### Build from source
 

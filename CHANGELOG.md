@@ -6,12 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0-beta.1] - 2026-09-05
+
 ### Added
 
-- Provider-independent local quota reset detection with bounded restart-safe deduplication.
-- Localized completed-reset notifications derived from normalized provider and window data.
-- Provider-independent `ResetEvent` and future `ResetEventSource` domain boundaries.
-- Privacy-safe compatibility diagnostics and an allowlisted English report for GitHub issues.
+- Configurable Remaining / Used quota presentation.
+- Updated onboarding and presentation contracts.
+- Privacy-safe compatibility diagnostics.
+- Local provider-independent quota reset detection.
+
+### Changed
+
+- Migrated the menu bar status-item shell to a hybrid AppKit + SwiftUI architecture.
+- Reorganized Settings by category.
+- Improved menu bar recovery behavior.
+- Defined the initial Reset Intelligence feed contracts and governance model.
+
+### Distribution
+
+- First publicly downloadable QuotaPulse beta distributed as a DMG.
+- Developer ID signing and Apple notarization are not yet available.
+- Automatic updates are not yet available.
 
 ## [0.1.1] - 2026-08-31
 

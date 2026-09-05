@@ -4,6 +4,12 @@
 
 QuotaPulse 是一款輕量、原生的 macOS 選單列工具，用來監看 AI 程式開發代理工具的額度用量與重設時間。
 
+## 文件
+
+完整的安裝指南、隱私說明與疑難排解：
+
+**https://quotapulse.yincheng.app/zh-TW/docs**
+
 ## 畫面預覽
 
 實際 App 畫面截圖刻意延後，之後再加入。目前 README 不會連結到暫代圖片。
@@ -35,11 +41,20 @@ ChatGPT.app 支援依賴未文件化的封裝細節：內附 Codex runtime 的�
 
 ## 安裝
 
-### 下載建置版本
+### 下載 Beta 版本
 
-v0.1.1 GitHub Release 為 source-only，不會附上已核准的 QuotaPulse App、DMG 或安裝套件。
+QuotaPulse v0.2.0 Beta 1 是第一個提供公開下載的版本。
 
-Developer ID 簽章、Hardened Runtime 驗證、notarization 與 binary distribution 檢查都刻意延後。自訂 Homebrew Tap 也只是可能的後續安裝方式，目前沒有官方 Homebrew Cask。
+請從 [GitHub Releases](https://github.com/YinCheng0106/QuotaPulse/releases) 下載最新的 DMG。
+
+1. 下載最新的 `.dmg`。
+2. 開啟磁碟映像檔。
+3. 將 QuotaPulse 拖曳到 Applications（應用程式）資料夾。
+4. 從 Applications 開啟 QuotaPulse。
+
+完整安裝與首次啟動方式請參閱 [QuotaPulse 文件](https://quotapulse.yincheng.app/zh-TW/docs/installation)。
+
+> 目前的 Beta 尚未使用 Apple Developer ID 完成簽署與公證，因此第一次開啟時 macOS 可能會要求額外核准。
 
 ### 從原始碼建置
 
