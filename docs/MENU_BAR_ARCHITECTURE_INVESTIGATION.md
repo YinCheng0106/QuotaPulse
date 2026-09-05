@@ -3,6 +3,8 @@
 Date: 2026-09-01 — final acceptance update 2026-09-02
 Scope: MenuBar architecture only; Milestone C and unrelated v0.2 work remain stopped.
 
+This investigation was completed before the public product rename. `QuotaPulse` references in measured evidence below intentionally retain the name used by the tested build; current product documentation uses QuotaMew.
+
 ## Decision
 
 Adopt and implement **a hybrid architecture**: keep the existing SwiftUI dashboard, settings, cards, `AppModel`, and `SettingsModel`, but replace only the `MenuBarExtra` shell with one app-owned `NSStatusItem` and a SwiftUI-hosted transient popover.

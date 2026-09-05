@@ -1,11 +1,11 @@
-# QuotaPulse v0.2 產品範圍
+# QuotaMew v0.2 產品範圍
 
 > 決策日期：2026-08-31
 > 性質：規劃與狀態文件。此文件不代表任何 v0.2 功能已簽署、已公證或已發行。
 
 ## 決策摘要
 
-v0.2 的最小高價值目標是讓 QuotaPulse 成為 **reset-aware AI coding quota assistant**：在不蒐集開發工作內容、不增加高頻輪詢的前提下，讓重度 Codex 使用者一眼看到自己選擇的額度呈現，並在有可追溯官方事件時，知道它與自己的本機快照有何關聯。
+v0.2 的最小高價值目標是讓 QuotaMew 成為 **reset-aware AI coding quota assistant**：在不蒐集開發工作內容、不增加高頻輪詢的前提下，讓重度 Codex 使用者一眼看到自己選擇的額度呈現，並在有可追溯官方事件時，知道它與自己的本機快照有何關聯。
 
 次要差異點只有兩項：
 
@@ -92,7 +92,7 @@ App 端必須有大小上限、ETag、expiry、last-known-good cache、離線安
 
 **驗收條件**：pinned provider 不可用時維持該選擇並顯示 unavailable，絕不暗中換 provider；所有 enabled provider 順序仍穩定；used/remaining 文字、VoiceOver、英／繁中與窄寬／notch 環境通過檢查；自動化測試證明 presentation 不改變 domain percentage、detector 或通知 threshold。
 
-**Milestone B final acceptance（2026-09-02）**：已以 `UsagePresentation` 接入 Dashboard 主 percentage、VoiceOver 與單一選單列 metric；`MenuBarPresentation` 明確分離 persisted pin 與 currently rendered provider，unknown／disabled／unavailable pin 不會 fallback。Production shell 已由 `MenuBarExtra` 遷移為一個 AppKit `NSStatusItem` controller，以 transient popover 承載原有 SwiftUI dashboard，並重用同一份 `AppModel`／`SettingsModel`。Controller 直接處理 create-once、stable autosave identity、hide/show、KVO logical visibility、recovery force-show、compact label 與 accessibility metadata；Settings OFF 不終止 process，hidden login-item launch 則在建立 item 前安靜退出。App-hosted XCTest 完全略過 controller 建立，scheme 使用 parallel execution；controller fake tests 與 read-only Control Center log 證明自動測試 host 不建立 status item。clean-user Release manual acceptance 證明 QuotaPulse 與 ChatGPT 獨立顯示且互不隱藏。這些改動沒有新增 network、timer、scheduler、provider I/O 或 Milestone C scope。主要開發帳號的 cascade 僅記錄為歷史 user-scoped Control Center stale state，不是 Release 架構缺陷，也不以程式修復。
+**Milestone B final acceptance（2026-09-02）**：已以 `UsagePresentation` 接入 Dashboard 主 percentage、VoiceOver 與單一選單列 metric；`MenuBarPresentation` 明確分離 persisted pin 與 currently rendered provider，unknown／disabled／unavailable pin 不會 fallback。Production shell 已由 `MenuBarExtra` 遷移為一個 AppKit `NSStatusItem` controller，以 transient popover 承載原有 SwiftUI dashboard，並重用同一份 `AppModel`／`SettingsModel`。Controller 直接處理 create-once、stable autosave identity、hide/show、KVO logical visibility、recovery force-show、compact label 與 accessibility metadata；Settings OFF 不終止 process，hidden login-item launch 則在建立 item 前安靜退出。App-hosted XCTest 完全略過 controller 建立，scheme 使用 parallel execution；controller fake tests 與 read-only Control Center log 證明自動測試 host 不建立 status item。clean-user Release manual acceptance 證明 QuotaMew 與 ChatGPT 獨立顯示且互不隱藏。這些改動沒有新增 network、timer、scheduler、provider I/O 或 Milestone C scope。主要開發帳號的 cascade 僅記錄為歷史 user-scoped Control Center stale state，不是 Release 架構缺陷，也不以程式修復。
 
 ### B. 可略過的首次啟動與可重看說明 — M
 
@@ -118,7 +118,7 @@ App 端必須有大小上限、ETag、expiry、last-known-good cache、離線安
 
 **依賴／架構**：新增獨立 `ResetEventService`、bounded cache/state、Settings opt-in 與 feed repository/validation workflow。它不能依賴、阻塞或觸發 `UsageProvider`、Codex app-server 或 Claude snapshot reader。
 
-**維護／隱私**：中等；需要 maintainer editorial review 與來源校對。網路請求僅取得公開 feed（仍會暴露一般網路連線 metadata，如 IP），沒有 QuotaPulse account、analytics 或 local usage upload。
+**維護／隱私**：中等；需要 maintainer editorial review 與來源校對。網路請求僅取得公開 feed（仍會暴露一般網路連線 metadata，如 IP），沒有 QuotaMew account、analytics 或 local usage upload。
 
 **驗收條件**：每個顯示/通知事件可開啟原始 URL；feed unavailable/invalid/stale 時本機 quota 照常；correction/retraction 能安全取代且不重複提醒；事件、cache、response body 與 persistence 都有嚴格大小/版本限制；fixture 覆蓋 malformed/future schema、expiry、revision、dedup、audience mismatch、local snapshot stale 與 notification permission denied；透過手動 review 發布的少量 seed event 做端對端驗證。
 
@@ -148,7 +148,7 @@ Apple Developer Program 的合理 trigger 不是單次 release，而是已出現
 
 Claude 仍應維持 **Experimental / Unverified**。要進入正式 roadmap gate，至少需要：Claude Code 支援版本的真實 status-line fixtures、一個合格 Pro/Max（及必要時 Team/Enterprise）測試帳號、fresh profile/現有 `statusLine.command`/managed settings 的 preview-backup-restore 測試、atomic snapshot/permission/symlink hardening，以及實際 notification/freshness 行為證據。未滿足前不做 bridge 安裝器，也不改標籤。
 
-Gemini CLI 目前只有互動式 `/stats model` 表面，OpenCode Go 有公開的方案 limits 但不是 QuotaPulse 可採用的安全 current-usage read contract。兩者都不值得以 credential、screen scraping、session 啟動、project server 或 token 推估來填補缺口。
+Gemini CLI 目前只有互動式 `/stats model` 表面，OpenCode Go 有公開的方案 limits 但不是 QuotaMew 可採用的安全 current-usage read contract。兩者都不值得以 credential、screen scraping、session 啟動、project server 或 token 推估來填補缺口。
 
 ## 版本建議與第一個實作任務
 

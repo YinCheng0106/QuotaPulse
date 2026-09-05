@@ -2,7 +2,7 @@
 
 ## 狀態與範圍
 
-QuotaPulse 已實作 provider-agnostic 的**本機 quota reset detection**。官方外部 Reset Intelligence feed 的擷取、polling、cache 與呈現仍為 **FUTURE**。
+QuotaMew 已實作 provider-agnostic 的**本機 quota reset detection**。官方外部 Reset Intelligence feed 的擷取、polling、cache 與呈現仍為 **FUTURE**。
 
 這兩個責任不共用資料擷取路徑：
 
@@ -96,7 +96,7 @@ Milestone A 已定義 JSON schema、hard bounds、event dedup、更正／撤回�
 
 可接受的未來來源可包含官方 OpenAI 公告、明確可驗證的 OpenAI/Codex 團隊公告，以及 provider-owned status/help pages。每個 event 必須保留原始 `sourceName` 與可點擊 `sourceURL`。
 
-QuotaPulse 不得將 AI 產生的解釋呈現為權威來源。`displaySummary` 只是顯示安全的補充文字，不取代原文。App 不需要 social-media credentials，也不直接爬取 X/Twitter。
+QuotaMew 不得將 AI 產生的解釋呈現為權威來源。`displaySummary` 只是顯示安全的補充文字，不取代原文。App 不需要 social-media credentials，也不直接爬取 X/Twitter。
 
 ## 隱私與資源限制
 

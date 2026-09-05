@@ -1,21 +1,21 @@
-# Contributing to QuotaPulse
+# Contributing to QuotaMew
 
-QuotaPulse targets macOS 14 or later and uses Swift 6. Build it with Xcode that includes a Swift 6 toolchain and the macOS 14 SDK or later; v0.1.0 was verified with Xcode 26.6. Apple silicon is the currently validated development platform; Intel Macs are not yet validated.
+QuotaMew targets macOS 14 or later and uses Swift 6. Build it with Xcode that includes a Swift 6 toolchain and the macOS 14 SDK or later; v0.1.0 was verified with Xcode 26.6. Apple silicon is the currently validated development platform; Intel Macs are not yet validated.
 
 ## Build and test
 
-Open `QuotaPulse.xcodeproj` in Xcode, or run:
+Open `QuotaMew.xcodeproj` in Xcode, or run:
 
 ```sh
 xcodebuild \
-  -project QuotaPulse.xcodeproj \
-  -scheme QuotaPulse \
+  -project QuotaMew.xcodeproj \
+  -scheme QuotaMew \
   -destination 'platform=macOS,arch=arm64' \
   build
 
 xcodebuild \
-  -project QuotaPulse.xcodeproj \
-  -scheme QuotaPulse \
+  -project QuotaMew.xcodeproj \
+  -scheme QuotaMew \
   -destination 'platform=macOS,arch=arm64' \
   test
 ```
@@ -35,6 +35,6 @@ Report vulnerabilities according to [SECURITY.md](SECURITY.md), not through a pu
 
 ## Provider compatibility issues
 
-For a provider compatibility report, open **QuotaPulse Settings → Diagnostics**, select **Copy Diagnostics**, and paste the generated English report into the issue. The report is generated from a typed allowlist and is intended to replace requests for broad logs.
+For a provider compatibility report, open **QuotaMew Settings → Diagnostics**, select **Copy Diagnostics**, and paste the generated English report into the issue. The report is generated from a typed allowlist and is intended to replace requests for broad logs.
 
 Do not attach app-server stdout or stderr, authentication files, Codex sessions, provider JSON, home-directory paths, prompts, source code, or repository metadata. If the built-in report is insufficient, describe the visible behavior and reproduction steps without adding private data.

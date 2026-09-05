@@ -1,22 +1,22 @@
-# QuotaPulse
+# QuotaMew
 
 [English](README.md) | **繁體中文**
 
-QuotaPulse 是一款輕量、原生的 macOS 選單列工具，用來監看 AI 程式開發代理工具的額度用量與重設時間。
+QuotaMew 是一款輕量、原生的 macOS 選單列工具，用來監看 AI 程式開發代理工具的額度用量與重設時間。
 
 ## 文件
 
 完整的安裝指南、隱私說明與疑難排解：
 
-**https://quotapulse.yincheng.app/zh-TW/docs**
+**https://quotamew.yincheng.app/zh-TW/docs**
 
 ## 畫面預覽
 
 實際 App 畫面截圖刻意延後，之後再加入。目前 README 不會連結到暫代圖片。
 
-## 為什麼需要 QuotaPulse
+## 為什麼需要 QuotaMew
 
-不同程式開發代理工具的額度可能在不同時間重設。QuotaPulse 讓目前用量百分比、重設時間與倒數只要點一下就能看到，不需要 QuotaPulse 帳號或雲端服務。
+不同程式開發代理工具的額度可能在不同時間重設。QuotaMew 讓目前用量百分比、重設時間與倒數只要點一下就能看到，不需要 QuotaMew 帳號或雲端服務。
 
 ## 功能
 
@@ -37,22 +37,22 @@ QuotaPulse 是一款輕量、原生的 macOS 選單列工具，用來監看 AI �
 | Codex | **Supported** | 已使用 ChatGPT.app 內附的 Codex runtime 驗證；探索時也保留舊 Codex.app 與相容獨立 CLI 位置作為 fallback。 |
 | Claude Code | **Experimental / Unverified** | 已實作有大小上限的本機 snapshot reader，但 opt-in status-line bridge 與符合資格之真實訂閱帳號驗證尚未完成。 |
 
-ChatGPT.app 支援依賴未文件化的封裝細節：內附 Codex runtime 的路徑不是穩定的公開 contract。因此 ChatGPT 更新後，QuotaPulse 可能需要相容性調整。
+ChatGPT.app 支援依賴未文件化的封裝細節：內附 Codex runtime 的路徑不是穩定的公開 contract。因此 ChatGPT 更新後，QuotaMew 可能需要相容性調整。
 
 ## 安裝
 
 ### 下載 Beta 版本
 
-QuotaPulse v0.2.0 Beta 1 是第一個提供公開下載的版本。
+目前可下載的 v0.2.0 Beta 1 是以更名前的 QuotaPulse 名稱公開發行的版本。
 
 請從 [GitHub Releases](https://github.com/YinCheng0106/QuotaPulse/releases) 下載最新的 DMG。
 
 1. 下載最新的 `.dmg`。
 2. 開啟磁碟映像檔。
-3. 將 QuotaPulse 拖曳到 Applications（應用程式）資料夾。
-4. 從 Applications 開啟 QuotaPulse。
+3. 將已發行的 QuotaPulse App 拖曳到 Applications（應用程式）資料夾。
+4. 從 Applications 開啟已發行的 QuotaPulse App。
 
-完整安裝與首次啟動方式請參閱 [QuotaPulse 文件](https://quotapulse.yincheng.app/zh-TW/docs/installation)。
+完整安裝與首次啟動方式請參閱 [QuotaMew 文件](https://quotamew.yincheng.app/zh-TW/docs/installation)。
 
 > 目前的 Beta 尚未使用 Apple Developer ID 完成簽署與公證，因此第一次開啟時 macOS 可能會要求額外核准。
 
@@ -67,56 +67,58 @@ QuotaPulse v0.2.0 Beta 1 是第一個提供公開下載的版本。
 Clone 並開啟專案：
 
 ```sh
-git clone https://github.com/YinCheng0106/QuotaPulse.git
-cd QuotaPulse
-open QuotaPulse.xcodeproj
+git clone https://github.com/YinCheng0106/QuotaMew.git
+cd QuotaMew
+open QuotaMew.xcodeproj
 ```
 
-在 Xcode 選擇 `QuotaPulse` scheme 與 **My Mac**，再選擇 **Product → Run**。如果 Xcode 要求設定本機開發用 team，請在 Signing & Capabilities 選擇自己的 team；這不代表已完成散布用的 Developer ID 簽章。
+上述 `QuotaMew` GitHub URL 是預定的正式 repository URL，需待外部完成 repository rename 後才會解析。
+
+在 Xcode 選擇 `QuotaMew` scheme 與 **My Mac**，再選擇 **Product → Run**。如果 Xcode 要求設定本機開發用 team，請在 Signing & Capabilities 選擇自己的 team；這不代表已完成散布用的 Developer ID 簽章。
 
 對應的命令列建置指令為：
 
 ```sh
 xcodebuild \
-  -project QuotaPulse.xcodeproj \
-  -scheme QuotaPulse \
+  -project QuotaMew.xcodeproj \
+  -scheme QuotaMew \
   -destination 'platform=macOS,arch=arm64' \
   -configuration Debug \
   build
 ```
 
-Debug build 使用獨立的 `dev.quotapulse.development.app` identity，並顯示為 **QuotaPulse Debug**。這會讓開發期間的選單列 status-item persistence、登入時啟動、通知權限與 `UserDefaults` 狀態和 production `dev.quotapulse.app` identity 分開；兩個 configuration 刻意不共用偏好設定。
+Debug build 使用獨立的 `dev.quotapulse.development.app` identity，並顯示為 **QuotaMew Debug**。這會讓開發期間的選單列 status-item persistence、登入時啟動、通知權限與 `UserDefaults` 狀態和 production `dev.quotapulse.app` identity 分開；兩個 configuration 刻意不共用偏好設定。
 
 ## Codex 整合方式
 
-QuotaPulse 會尋找相容的 Codex 執行檔，優先使用 ChatGPT.app 內附的 runtime，再 fallback 到支援的舊版或獨立安裝位置。它會直接啟動 `codex app-server`，並透過已有文件的 stdio protocol 呼叫 `account/rateLimits/read`。
+QuotaMew 會尋找相容的 Codex 執行檔，優先使用 ChatGPT.app 內附的 runtime，再 fallback 到支援的舊版或獨立安裝位置。它會直接啟動 `codex app-server`，並透過已有文件的 stdio protocol 呼叫 `account/rateLimits/read`。
 
-驗證身分仍由 Codex 負責。QuotaPulse 不會讀取或複製 `~/.codex/auth.json`、擷取互動式 `/status` 畫面，也不會掃描 Codex session history。Provider 資料經過正規化後才會交給 SwiftUI。
+驗證身分仍由 Codex 負責。QuotaMew 不會讀取或複製 `~/.codex/auth.json`、擷取互動式 `/status` 畫面，也不會掃描 Codex session history。Provider 資料經過正規化後才會交給 SwiftUI。
 
 ## 通知
 
-取得新鮮的 provider 資料，且剩餘額度至少為 20% 時，QuotaPulse 會透過 macOS `UserNotifications` 在本機排定重設提醒。短額度視窗可在 1 小時與 30 分鐘前提醒；長視窗則可在門檻未超過視窗長度時，於 24 小時、6 小時與 1 小時前提醒。你可以在「設定」中關閉全部通知或個別門檻。
+取得新鮮的 provider 資料，且剩餘額度至少為 20% 時，QuotaMew 會透過 macOS `UserNotifications` 在本機排定重設提醒。短額度視窗可在 1 小時與 30 分鐘前提醒；長視窗則可在門檻未超過視窗長度時，於 24 小時、6 小時與 1 小時前提醒。你可以在「設定」中關閉全部通知或個別門檻。
 
-QuotaPulse 也會在每次刷新後比對有上限的 normalized provider 狀態，判斷 quota window 是否真正進入新 cycle，並在該視窗完成重設時最多通知一次。單純 percentage 下降不計為 reset，persisted cycle identity 也會避免 App restart 後重複通知。官方外部 Reset Intelligence feed 仍是未來階段；詳見 [docs/RESET_INTELLIGENCE.md](docs/RESET_INTELLIGENCE.md)。
+QuotaMew 也會在每次刷新後比對有上限的 normalized provider 狀態，判斷 quota window 是否真正進入新 cycle，並在該視窗完成重設時最多通知一次。單純 percentage 下降不計為 reset，persisted cycle identity 也會避免 App restart 後重複通知。官方外部 Reset Intelligence feed 仍是未來階段；詳見 [docs/RESET_INTELLIGENCE.md](docs/RESET_INTELLIGENCE.md)。
 
 ## 隱私
 
-QuotaPulse 在本機處理用量資料，不需要 QuotaPulse 帳號、後端、分析服務或雲端同步。它的設計不會刻意上傳：
+QuotaMew 在本機處理用量資料，不需要 QuotaMew 帳號、後端、分析服務或雲端同步。它的設計不會刻意上傳：
 
 - prompt 或對話內容
 - 原始碼或程式開發歷史
 - 驗證憑證
 - provider session 內容
 
-使用 Codex 時，QuotaPulse 只會向本機安裝的 runtime 傳送取得 rate-limit 資料所需的 app-server protocol request；該 runtime 仍依原本設計處理 provider 通訊與驗證。使用 Claude Code 時，目前實作的 reader 只接受小型、有版本的 QuotaPulse 自有 snapshot，不會掃描 transcript、history、credential 或內部 usage cache。
+使用 Codex 時，QuotaMew 只會向本機安裝的 runtime 傳送取得 rate-limit 資料所需的 app-server protocol request；該 runtime 仍依原本設計處理 provider 通訊與驗證。使用 Claude Code 時，目前實作的 reader 只接受小型、有版本的 legacy QuotaPulse 自有 snapshot，不會掃描 transcript、history、credential 或內部 usage cache。
 
-以上描述的是 QuotaPulse 的實作邊界，不會改變 ChatGPT、Codex、Claude Code、macOS 或 Mac 上其他軟體本身的隱私與網路行為。
+以上描述的是 QuotaMew 的實作邊界，不會改變 ChatGPT、Codex、Claude Code、macOS 或 Mac 上其他軟體本身的隱私與網路行為。
 
 ## 效能理念
 
-QuotaPulse 優先採用事件驅動更新、保守的刷新週期、有上限的 process output，以及同一時間只進行一個合併後的刷新。倒數畫面本身不會觸發 provider request。
+QuotaMew 優先採用事件驅動更新、保守的刷新週期、有上限的 process output，以及同一時間只進行一個合併後的刷新。倒數畫面本身不會觸發 provider request。
 
-在開發機約一小時的測試中，QuotaPulse 閒置記憶體維持在約 48 MB；開啟選單或「設定」時曾短暫到約 70 MB，刷新時則短暫增加約 10–20 MB，之後都會往基準值回落。觀察到的閒置 CPU 接近 0%。這些是單一開發環境的觀察結果，不是所有環境的保證；量測條件與限制請參閱 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。
+在開發機約一小時的測試中，QuotaMew 閒置記憶體維持在約 48 MB；開啟選單或「設定」時曾短暫到約 70 MB，刷新時則短暫增加約 10–20 MB，之後都會往基準值回落。觀察到的閒置 CPU 接近 0%。這些是單一開發環境的觀察結果，不是所有環境的保證；量測條件與限制請參閱 [docs/PERFORMANCE.md](docs/PERFORMANCE.md)。
 
 ## Provider 相容性疑難排解
 
@@ -137,7 +139,7 @@ QuotaPulse 優先採用事件驅動更新、保守的刷新週期、有上限的
 
 ## 路線圖
 
-QuotaPulse 現已包含本機 reset-cycle detection。未來可能進行經審查的 Claude Code opt-in bridge、更廣泛的 provider 與硬體驗證、簽章與 notarization，以及保留來源連結的官方 Reset Intelligence feed 擷取；這些未來項目都不是目前已實作功能。詳情請參閱 [ROADMAP.md](ROADMAP.md)。
+QuotaMew 現已包含本機 reset-cycle detection。未來可能進行經審查的 Claude Code opt-in bridge、更廣泛的 provider 與硬體驗證、簽章與 notarization，以及保留來源連結的官方 Reset Intelligence feed 擷取；這些未來項目都不是目前已實作功能。詳情請參閱 [ROADMAP.md](ROADMAP.md)。
 
 ## 參與貢獻
 
@@ -145,4 +147,4 @@ QuotaPulse 現已包含本機 reset-cycle detection。未來可能進行經審�
 
 ## 授權
 
-QuotaPulse 採用 [MIT License](LICENSE) 授權。
+QuotaMew 採用 [MIT License](LICENSE) 授權。

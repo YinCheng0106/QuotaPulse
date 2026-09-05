@@ -14,7 +14,7 @@ Codex 的實際額度百分比、額度視窗長度與下次重設時間可以�
 - backward-compatible 的 `rateLimits` single-bucket view
 - 可用時的 `rateLimitsByLimitId` multi-bucket view
 
-本機 Codex process 負責現有 authentication。QuotaPulse 不需要、也不得讀取或複製 `~/.codex/auth.json`。這個作法仍需要可用的 Codex authentication 與網路；它不是離線額度資料庫。
+本機 Codex process 負責現有 authentication。QuotaMew 不需要、也不得讀取或複製 `~/.codex/auth.json`。這個作法仍需要可用的 Codex authentication 與網路；它不是離線額度資料庫。
 
 ## Executable discovery
 
@@ -30,7 +30,7 @@ Codex 的實際額度百分比、額度視窗長度與下次重設時間可以�
 
 Desktop 候選必須解析為名為 `ChatGPT.app` 或 `Codex.app`、bundle identifier 為 `com.openai.codex` 的 bundle；因兩者目前共用 identifier，identifier 只作為 `NSWorkspace` lookup hint，不能單獨視為可信身分。其 bundled binary 與所有 CLI 候選都必須解析 symlink 後為一般可執行檔，且其路徑祖先不可由不受信任帳號或 everyone 寫入。成功來源只在 process memory 中快取，每次使用前重新驗證；app 被移動、刪除、更新後改變 runtime，或 binary 失去執行權限時會重新解析或走完整探索。有效快取不會在每次 quota refresh 重複查詢 `NSWorkspace`。找不到時維持 `notInstalled`。
 
-QuotaPulse 把所有 runtime 探索保留在同一個 locator，並共用 bundle 身分、一般檔案、symlink、路徑權限、受限 `PATH`、快取及 stale recovery 驗證；沒有在 app-server client 內建立第二套 discovery。
+QuotaMew 把所有 runtime 探索保留在同一個 locator，並共用 bundle 身分、一般檔案、symlink、路徑權限、受限 `PATH`、快取及 stale recovery 驗證；沒有在 app-server client 內建立第二套 discovery。
 
 本機 ChatGPT `26.818.61809` 的簽章 bundle 內含 arm64 `Contents/Resources/codex`，版本為 `codex-cli 0.149.0-alpha.4.3`。此位置與既有 Desktop packaging 一致，且可實際完成 app-server request，因此目前列為首選；它仍不是獨立公開的檔案位置 contract，所以 locator 會在每次使用前驗證並保留舊 Codex.app、standalone CLI 與安全 `PATH` fallback。
 
@@ -68,7 +68,7 @@ QuotaPulse 把所有 runtime 探索保留在同一個 locator，並共用 bundle
 
 判定：
 
-- 絕對不可作為 QuotaPulse 資料來源
+- 絕對不可作為 QuotaMew 資料來源
 - 不得解析、複製、監看或上傳
 - authentication 應完全交由 `codex app-server` 管理
 
@@ -94,7 +94,7 @@ payload.rate_limits.plan_type
 - persisted event schema 沒有在官方 app-server 文件中承諾
 - event 只會跟著 session activity 更新，可能缺少、過期或位於 archived session
 - 同一檔案包含 prompt、tool output 與其他私密 conversation data
-- 掃描大量 session 檔違反 QuotaPulse 的資料最小化與效能目標
+- 掃描大量 session 檔違反 QuotaMew 的資料最小化與效能目標
 - 不實作為預設 fallback
 
 ### `~/.codex/session_index.jsonl`
@@ -139,7 +139,7 @@ Schema-only 搜尋沒有找到專用 quota、rate-limit、usage 或 reset column
 
 ## Authenticated endpoint 是否必要
 
-是。`account/rateLimits/read` 是本機 app-server protocol method，但資料代表 ChatGPT account rate limits，必須由 Codex 使用其現有 authentication 向服務取得。QuotaPulse 不應自行呼叫未文件化 HTTP endpoint，也不應讀取 token 後組裝 request。
+是。`account/rateLimits/read` 是本機 app-server protocol method，但資料代表 ChatGPT account rate limits，必須由 Codex 使用其現有 authentication 向服務取得。QuotaMew 不應自行呼叫未文件化 HTTP endpoint，也不應讀取 token 後組裝 request。
 
 應區分：
 

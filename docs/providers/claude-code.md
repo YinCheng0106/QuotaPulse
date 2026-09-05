@@ -23,11 +23,11 @@ Claude Code 有文件化、可取得實際訂閱額度百分比與重設時間�
 - 更新跟著 status-line event 發生；Claude Code 閒置時資料會變舊
 - status-line command 必須先通過 workspace trust
 - Claude Code 2.1.80 changelog 才加入這組欄位
-- Anthropic 官方 repository 仍有新版本缺少 `rate_limits` 的公開 bug reports，因此 QuotaPulse 必須把缺欄位視為 unavailable，不能推估
+- Anthropic 官方 repository 仍有新版本缺少 `rate_limits` 的公開 bug reports，因此 QuotaMew 必須把缺欄位視為 unavailable，不能推估
 
 沒有找到文件化的非互動 `claude usage --json`、本機 daemon query、公開訂閱 quota API，或可安全供第三方 App 重用的 authenticated endpoint。
 
-因此 v0.1 的合理設計是：由使用者明確同意的 status-line bridge，只把四個文件化 rate-limit values、capture time、snapshot schema version 與可選的 Claude Code version 寫進 QuotaPulse 自有小型 snapshot。`ClaudeProvider` 只讀該 snapshot，不讀 Claude Code transcripts、history、credentials 或 internal caches。
+因此 v0.1 的合理設計是：由使用者明確同意的 status-line bridge，只把四個文件化 rate-limit values、capture time、snapshot schema version 與可選的 Claude Code version 寫進 QuotaMew 自有小型 snapshot。`ClaudeProvider` 只讀該 snapshot，不讀 Claude Code transcripts、history、credentials 或 internal caches。
 
 ## 探索方法與隱私限制
 
@@ -55,9 +55,9 @@ Claude Code 有文件化、可取得實際訂閱額度百分比與重設時間�
 
 本機存在常見位置的 Claude Code npm launcher。package metadata 顯示版本為 `1.0.43`。
 
-官方 changelog 記錄 `rate_limits` status-line fields 從 `2.1.80` 才加入，因此本機這個舊版本不能視為支援本次 contract。QuotaPulse 未嘗試升級、登入或啟動互動 session。
+官方 changelog 記錄 `rate_limits` status-line fields 從 `2.1.80` 才加入，因此本機這個舊版本不能視為支援本次 contract。QuotaMew 未嘗試升級、登入或啟動互動 session。
 
-本機 `CLAUDE_CONFIG_DIR` 未設定，所以官方預設的 `~/.claude` 與 `~/.claude.json` locations 適用。若使用者設定 `CLAUDE_CONFIG_DIR`，Claude Code 會把 settings、session history 與 plugins 移到該位置；未來 bridge setup 必須尊重這個設定，但 provider 本身只應讀 QuotaPulse-owned snapshot。
+本機 `CLAUDE_CONFIG_DIR` 未設定，所以官方預設的 `~/.claude` 與 `~/.claude.json` locations 適用。若使用者設定 `CLAUDE_CONFIG_DIR`，Claude Code 會把 settings、session history 與 plugins 移到該位置；未來 bridge setup 必須尊重這個設定，但 provider 本身只應讀 legacy QuotaPulse-owned snapshot。
 
 ### `~/.claude/settings.json`
 
@@ -76,7 +76,7 @@ Claude Code 有文件化、可取得實際訂閱額度百分比與重設時間�
 判定：
 
 - 設定位置與 `statusLine` contract 有官方文件，可依賴
-- 既有 command 屬於使用者工作流程，QuotaPulse 絕不能靜默取代
+- 既有 command 屬於使用者工作流程，QuotaMew 絕不能靜默取代
 - status-line setup 必須能 preview、保留、組合或讓使用者自行整合，並提供可復原方式
 - 本次只偵測，不修改任何設定
 
@@ -159,13 +159,13 @@ Claude Code 在特定 session events 後執行 configured status-line command，
 優點：
 
 - quota fields 與語意有官方文件
-- 不需要 QuotaPulse 取得 authentication secrets
+- 不需要 QuotaMew 取得 authentication secrets
 - 可以在 bridge 邊界立刻捨棄所有非 quota fields
 - event-driven，不需要掃描 transcripts 或積極輪詢
 
 限制：
 
-- 不是 pull API，無法由 QuotaPulse 隨時要求新資料
+- 不是 pull API，無法由 QuotaMew 隨時要求新資料
 - first API response 之前沒有資料
 - Claude Code 閒置時 snapshot 可能 stale
 - 每個 window 可以缺少
@@ -198,7 +198,7 @@ Claude Code 在特定 session events 後執行 configured status-line command，
 
 官方文件會把使用者導向 Claude.ai usage/settings 頁面，但沒有提供第三方 App 可使用的 subscription-usage public API contract。
 
-Anthropic 的 authentication 文件也明確區分 Claude.ai subscription OAuth 與第三方產品應使用的 API-key用途。QuotaPulse 不應重用 Claude Code OAuth credential、模擬 claude.ai login 或 reverse-engineer internal endpoint。
+Anthropic 的 authentication 文件也明確區分 Claude.ai subscription OAuth 與第三方產品應使用的 API-key用途。QuotaMew 不應重用 Claude Code OAuth credential、模擬 claude.ai login 或 reverse-engineer internal endpoint。
 
 判定：沒有 backend、沒有 web scraping、沒有 credential access、沒有 undocumented HTTP request。
 
@@ -219,8 +219,8 @@ Anthropic 的 authentication 文件也明確區分 Claude.ai subscription OAuth 
 
 這次加入 provider core，但沒有 bridge installer、UI wiring 或 settings mutation：
 
-- `ClaudeSnapshotReader` 只讀 QuotaPulse-owned `usage-v1.json`
-- 預設位置為 user Application Support 下的 `QuotaPulse/Providers/Claude/usage-v1.json`
+- `ClaudeSnapshotReader` 只讀 legacy QuotaPulse-owned `usage-v1.json`
+- 預設位置為 user Application Support 下的 legacy `QuotaPulse/Providers/Claude/usage-v1.json`
 - snapshot 上限為 16 KiB
 - 只支援明確的 `schemaVersion: 1`
 - `capturedAt` 使用 ISO 8601，讓 stale policy 有可靠基準
@@ -236,7 +236,7 @@ Anthropic 的 authentication 文件也明確區分 Claude.ai subscription OAuth 
 - production `AppDependencies` 使用 `ClaudeProvider`；SwiftUI previews 使用 `MockUsageProvider.claude`
 - UI 固定以 `Experimental` 標籤呈現 Claude Code，直到 bridge 與正式訂閱帳號 live validation 完成
 
-QuotaPulse-owned schema：
+legacy QuotaPulse-owned schema：
 
 ```json
 {
@@ -278,7 +278,7 @@ QuotaPulse-owned schema：
 
 建議順序：
 
-1. 讀取 QuotaPulse-owned snapshot。
+1. 讀取 legacy QuotaPulse-owned snapshot。
 2. 沒有 snapshot：顯示 `notConfigured`，提供 opt-in bridge 說明。
 3. snapshot schema 不支援或內容錯誤：顯示 unavailable/failed，不讀 Claude internal files。
 4. snapshot 太舊：保留 last-known values 並明確標示 stale。

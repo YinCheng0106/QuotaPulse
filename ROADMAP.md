@@ -1,4 +1,4 @@
-# QuotaPulse 路線圖
+# QuotaMew 路線圖
 
 本路線圖以成果為導向。在平臺基準與即時 provider 整合驗證完成前，刻意不承諾日期。
 
@@ -59,7 +59,7 @@
 - 已區分找不到執行檔、timeout、server 與 protocol errors；UI status mapping、未登入與不支援 authentication 的實際 error-shape 驗證仍待完成
 - 已用 fake process 測試正常 response、健康 connection 重用、並行讀取合併、失敗重連、child reap、shutdown、oversized output 與 timeout；partial 與 out-of-order coverage 仍待補齊
 - 已用 sanitized live probe 驗證 ChatGPT.app bundled `codex-cli 0.149.0-alpha.4.3`；仍須驗證數個正式支援版本
-- 已在本機 production app assembly 驗證真實 Codex snapshot 可到達共用 UI，並以父程序取樣確認單次 refresh 最多只有一個 QuotaPulse app-server child process
+- 已在本機 production app assembly 驗證真實 Codex snapshot 可到達共用 UI，並以父程序取樣確認單次 refresh 最多只有一個 QuotaMew app-server child process
 - 已透過 production `AppDependencies`、`UsageProvider` 與 `UsageService` 接入共用 UI state；SwiftUI 不含 Codex-specific rendering branch
 - 量測啟動延遲、尖峰與閒置記憶體，以及 process cleanup
 
@@ -79,7 +79,7 @@ Production `AppDependencies` 現在建立 `CodexProvider`；SwiftUI previews 仍
 狀態：進行中；usage discovery、版本化 snapshot reader、provider core 與共用應用程式串接已完成，但 bridge setup 與 live validation 尚未實作
 
 - 已定義有版本的最小 Claude snapshot schema
-- 已實作只讀 QuotaPulse-owned snapshot 的 bounded reader；可執行 bridge writer 尚未實作
+- 已實作只讀 legacy QuotaPulse-owned snapshot 的 bounded reader；可執行 bridge writer 尚未實作
 - 已偵測本機現有 Claude status-line 設定但未讀取 command value，也未修改設定
 - 設計明確的設定預覽、備份與復原流程
 - 決定 v0.1 是否修改 settings，或只產生人工整合說明
@@ -110,7 +110,7 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 - 已從本輪成功且新鮮的本機 snapshot 依 `UsageWindow.duration` 建立門檻通知：6 小時以下使用 1 小時／30 分鐘，長視窗使用不超過視窗長度的 24／6／1 小時門檻；不從 stale cached data 建立新通知
 - 已以 provider／window／logical reset generation／threshold 去除重複通知，並以最多 32 筆 metadata 保持 persistence bounded
 - 已加入原生 Settings：`SMAppService` Launch at Login、Codex／Claude enablement、通知總開關，以及分組的短視窗 1 小時／30 分鐘與長視窗 24／6／1 小時門檻
-- 已在關閉通知或個別門檻時移除相符的 pending QuotaPulse reset requests；拒絕 system permission 不影響刷新與 UI
+- 已在關閉通知或個別門檻時移除相符的 pending QuotaMew reset requests；拒絕 system permission 不影響刷新與 UI
 - 已以 typed UserDefaults keys 保存 preferences，Claude 明確標為 Experimental／Unverified，沒有加入 bridge setup
 - 使用 String Catalog 本地化使用者可見字串
 - 完成 VoiceOver、鍵盤、對比與 reduced-motion 檢查
@@ -172,7 +172,7 @@ Production `AppDependencies` 現在建立 `ClaudeProvider`；在 bridge 尚未�
 
 本節保留上述 v0.1 歷史與已完成里程碑，並為後續工作重新排序。詳細問題、目標使用者、風險、依賴與 acceptance criteria 見 [`docs/PRODUCT_STRATEGY.md`](docs/PRODUCT_STRATEGY.md)；競品證據與刻意不採用的模式見 [`docs/COMPETITIVE_ANALYSIS.md`](docs/COMPETITIVE_ANALYSIS.md)。
 
-QuotaPulse 的主要定位是 **重視隱私的 AI coding 額度選單列工具**。近期不把它擴張為通用 AI dashboard，也不投入 Production App Icon／branding migration；後者維持 deferred polish，除非實際阻擋散布。
+QuotaMew 的主要定位是 **重視隱私的 AI coding 額度選單列工具**。近期不把它擴張為通用 AI dashboard，也不投入其他非必要的 branding migration；後者維持 deferred polish，除非實際阻擋散布。
 
 ### v0.1.x — Polish／Adoption／Compatibility
 
@@ -200,7 +200,7 @@ QuotaPulse 的主要定位是 **重視隱私的 AI coding 額度選單列工具*
 
 ### v0.3 — Reset Intelligence research
 
-目標：只在來源治理與維護責任成立時，研究 QuotaPulse 的長期差異化。
+目標：只在來源治理與維護責任成立時，研究 QuotaMew 的長期差異化。
 
 1. 先以 maintainer-curated、GitHub-hosted static `ResetEvent` feed 做 MVP；每筆事件保留 publisher、source URL、publication／effective time、verification、correction／retraction 與 schema version。
 2. GitHub Actions 只負責 schema／URL／time validation 與 artifact 產生；規則優先，AI 只協助人工處理模糊候選，不能直接發布。

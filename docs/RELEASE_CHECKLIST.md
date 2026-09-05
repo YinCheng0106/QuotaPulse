@@ -1,5 +1,7 @@
 # QuotaPulse v0.1.1 Release Checklist
 
+Historical checklist: v0.1.1 was prepared and verified under the QuotaPulse name.
+
 Last audited: 2026-08-31
 
 Status labels:

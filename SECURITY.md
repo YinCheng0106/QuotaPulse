@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-Security updates are provided for the latest published QuotaPulse release. Pre-release builds are supported on a best-effort basis.
+Security updates are provided for the latest published QuotaMew release. Pre-release builds are supported on a best-effort basis.
 
 ## Reporting a vulnerability
 
@@ -12,4 +12,4 @@ GitHub Private Vulnerability Reporting is enabled for this repository. Use the r
 
 Include a concise impact description, affected version, reproduction steps, and any relevant sanitized logs. Do not include credentials, access tokens, prompts, transcripts, source code from unrelated projects, raw provider responses, or other users' data.
 
-QuotaPulse does not currently provide a published response-time service-level agreement. The maintainer will acknowledge a valid private report when practical and coordinate disclosure after a fix is available.
+QuotaMew does not currently provide a published response-time service-level agreement. The maintainer will acknowledge a valid private report when practical and coordinate disclosure after a fix is available.

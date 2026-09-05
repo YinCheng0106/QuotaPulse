@@ -1,4 +1,4 @@
-# QuotaPulse post-v0.1 產品與技術策略
+# QuotaMew post-v0.1 產品與技術策略
 
 > 稽核日期：2026-08-30
 > 範圍：目前工作樹中的產品、架構、測試、文件，以及公開競品與 macOS 發佈方案
@@ -6,7 +6,7 @@
 
 ## Executive decision
 
-QuotaPulse 不應成為通用 AI dashboard。它最有機會建立的產品信任是：在 macOS 選單列中，以很低的資源成本、清楚的資料來源與保守的判斷，回答「現在還剩多少、何時重設、這份資訊是否可信」。
+QuotaMew 不應成為通用 AI dashboard。它最有機會建立的產品信任是：在 macOS 選單列中，以很低的資源成本、清楚的資料來源與保守的判斷，回答「現在還剩多少、何時重設、這份資訊是否可信」。
 
 建議的主要定位是：
 
@@ -35,14 +35,14 @@ QuotaPulse 不應成為通用 AI dashboard。它最有機會建立的產品信�
 - 失敗時保留仍有價值的 last-known snapshot，並以 freshness／錯誤狀態揭露不確定性。
 - 通知採單一 `NotificationService`，有 bounded persistence、threshold 與 reset generation 去重；關閉 provider 或通知時會清除相符 pending request。
 - 本機 reset detection 已採保守證據：長時間缺口重新建立 baseline、百分比下降本身不算 reset、過期／mock／缺乏 window identity 時不通知。
-- Claude reader 只讀 QuotaPulse-owned、版本化、大小受限的 snapshot；不掃 transcript、project cache 或 credential。
+- Claude reader 只讀 legacy QuotaPulse-owned、版本化、大小受限的 snapshot；不掃 transcript、project cache 或 credential。
 - English／繁體中文 String Catalog、VoiceOver label/value、鍵盤與 reduced-motion 已有明確測試／人工檢查邊界。
 - SwiftUI previews 使用 mock provider；production assembly 使用真實 adapter，測試替身沒有混入 production path。
 
 ### 未完成或會直接傷害採用的部分
 
 1. **source-only 發佈**：一般使用者需要 Xcode，且沒有 Developer ID、Hardened Runtime、notarization、安裝後 Gatekeeper 與 Launch at Login 驗證。
-2. **缺乏首次啟動說明**：新使用者不知道 QuotaPulse 讀什麼、不讀什麼、Codex 為何可能需要 ChatGPT.app，也不知道 Claude 目前需要尚未實作的 bridge。
+2. **缺乏首次啟動說明**：新使用者不知道 QuotaMew 讀什麼、不讀什麼、Codex 為何可能需要 ChatGPT.app，也不知道 Claude 目前需要尚未實作的 bridge。
 3. **Claude Code 顯示大於實際可用性**：reader 與 UI 已存在，但 writer／可逆 setup／live subscribed-account validation 尚未完成。預設顯示「未設定」卡片容易被理解為產品故障。
 4. **沒有 production diagnostics**：DEBUG 診斷不足以支援 GitHub 使用者；維護者無法快速區分 runtime discovery、app-server、資料可用性與 freshness 問題。
 5. **disabled provider 語意不一致**：`UsageService` 已不呼叫 disabled provider，通知也已排除，但 Dashboard 仍渲染 disabled 卡片。
@@ -85,7 +85,7 @@ QuotaPulse 不應成為通用 AI dashboard。它最有機會建立的產品信�
 - Dashboard 不再顯示 disabled provider placeholder；重新啟用只在 Settings 管理。
 - 不增加獨立的「Advanced」分頁來承載尚不存在的功能。
 - 不新增第二套 notification scheduler、provider-specific UI branch 或 update daemon。
-- 不把「Open QuotaPulse」當成不明確命令；若未來出現此項，必須明確代表開啟現有 dashboard，而不是假裝有主視窗。
+- 不把「Open QuotaMew」當成不明確命令；若未來出現此項，必須明確代表開啟現有 dashboard，而不是假裝有主視窗。
 
 ## 2. Primary users
 
@@ -93,10 +93,10 @@ QuotaPulse 不應成為通用 AI dashboard。它最有機會建立的產品信�
 |---|---|---|---|---|---|
 | Codex 日常重度使用者（首要） | 每天多次接近 5-hour／weekly limit | 剩餘或已用比例、可信 reset time、資料 freshness、reset 完成通知 | 幾乎零設定；期待簽章下載或 Homebrew | ChatGPT 更新後無聲失效、資訊過期卻像即時、安裝麻煩 | 一眼可信、故障可診斷、通知不誤報 |
 | 多 AI coding 訂閱者（首要） | 每天在 Codex／Claude 間切換 | 各 provider 目前風險、最近 reset、固定 pinned provider | 可接受一次性的透明 setup；不接受 credential 匯入 | disabled／未設定卡片製造噪音、其中一個 provider 長期不可用 | 一個原生選單列就能理解多個額度，且 provider 互不拖累 |
-| 隱私敏感的 macOS 開發者（核心影響者） | 長時間常駐，偶爾確認 | QuotaPulse 讀取範圍、runtime source、last refresh、資源成本 | 期待 notarized App；設定要少且可撤回 | 掃描 logs／credentials、上傳 usage、背景 CPU 或記憶體失控 | 邊界寫得誠實、可複查、依賴少、Release 行為可驗證 |
+| 隱私敏感的 macOS 開發者（核心影響者） | 長時間常駐，偶爾確認 | QuotaMew 讀取範圍、runtime source、last refresh、資源成本 | 期待 notarized App；設定要少且可撤回 | 掃描 logs／credentials、上傳 usage、背景 CPU 或記憶體失控 | 邊界寫得誠實、可複查、依賴少、Release 行為可驗證 |
 | 開源 early adopter／貢獻者（次要） | 每次 release 或 provider breakage | build status、fixtures、known compatibility、issue diagnostics | 願意用 Xcode，但期待可重現 build 與清楚文件 | README 過度承諾、沒有 CI、issue 無法重現 | 架構清楚、測試扎實、相容性問題可小範圍修正 |
 
-產品決策應先服務前三者；不能為了吸引「想看所有 token／成本／歷史圖表」的廣泛族群，把 QuotaPulse 變成另一個通用 dashboard。
+產品決策應先服務前三者；不能為了吸引「想看所有 token／成本／歷史圖表」的廣泛族群，把 QuotaMew 變成另一個通用 dashboard。
 
 ## 3. Required feature decisions
 
@@ -146,11 +146,11 @@ source-only 階段做 checker 的價值很低，因為使用者仍須拉 source�
 
 #### C. Custom updater — Reject
 
-自行處理下載、簽章驗證、atomic replacement、rollback、權限與 App Translocation 的安全／維護成本，遠高於 QuotaPulse 的產品價值。不要建立自訂 updater 或額外 launch daemon。
+自行處理下載、簽章驗證、atomic replacement、rollback、權限與 App Translocation 的安全／維護成本，遠高於 QuotaMew 的產品價值。不要建立自訂 updater 或額外 launch daemon。
 
 #### D. Homebrew — 安裝 channel，不是 App 更新核心
 
-Custom tap 可在可信預建 archive 後提供便利；官方 Homebrew Cask 再依採用與維護能力申請。Cask 需要 version、SHA-256、下載 URL 與 `.app` artifact，且官方 cask 要符合 Gatekeeper 要求。它不替 QuotaPulse 編譯 Swift，也不取代 Developer ID／notarization；只有透過 Homebrew 安裝的使用者由 `brew upgrade` 管理。
+Custom tap 可在可信預建 archive 後提供便利；官方 Homebrew Cask 再依採用與維護能力申請。Cask 需要 version、SHA-256、下載 URL 與 `.app` artifact，且官方 cask 要符合 Gatekeeper 要求。它不替 QuotaMew 編譯 Swift，也不取代 Developer ID／notarization；只有透過 Homebrew 安裝的使用者由 `brew upgrade` 管理。
 
 參考：[Homebrew Cask Cookbook](https://docs.brew.sh/Cask-Cookbook)、[Acceptable Casks](https://docs.brew.sh/Acceptable-Casks)。
 
@@ -250,7 +250,7 @@ Notification permission 不應在 App 一啟動就突然跳出。onboarding 可�
 
 這是目前最高報酬項目。production Diagnostics 應顯示並可複製：
 
-- QuotaPulse version／build、macOS version、architecture。
+- QuotaMew version／build、macOS version、architecture。
 - 每個 provider 的 enabled、runtime detected、runtime source 類型（例如 ChatGPT.app；不含完整路徑）、app-server connected／disconnected。
 - last refresh time 與 success／failed、usage available yes／no、snapshot freshness category。
 - Claude bridge schema／configured 狀態；不複製 command 或檔案路徑。
@@ -306,7 +306,7 @@ v0.1.x 先在 GitHub 文件維護「last validated ChatGPT version／bundled Cod
 | Cadence | Maintenance work | Evidence／exit condition |
 |---|---|---|
 | Every PR | Debug tests、unsigned Release build、localization key tests、notification/reset regression | CI checks green；失敗不以人工口頭略過 |
-| Every QuotaPulse release | clean build、unit tests、signed artifact verification（binary 階段）、Gatekeeper、notification opt-in、Launch at Login | Release checklist 附版本、machine、macOS、結果與未驗證項目 |
+| Every QuotaMew release | clean build、unit tests、signed artifact verification（binary 階段）、Gatekeeper、notification opt-in、Launch at Login | Release checklist 附版本、machine、macOS、結果與未驗證項目 |
 | Every ChatGPT／Codex compatibility report | locator fixture、app-server handshake／schema、process cleanup、last-good behavior | 更新 public compatibility matrix；issue 附 allowlisted diagnostics |
 | Claude contract change／每季 | status-line schema、bridge setup／restore、freshness 與 future-version fixtures | fresh profile 與 existing statusLine profile 都可回復；否則維持 Unverified |
 | Quarterly Xcode／macOS review | Swift language mode、deprecated API、MenuBarExtra／SMAppService／UserNotifications behavior | 支援基線或文件更新；不偷偷擴大 deployment target |

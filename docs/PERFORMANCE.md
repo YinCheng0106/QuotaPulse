@@ -1,6 +1,6 @@
-# QuotaPulse v0.1 效能與生命週期預算
+# QuotaMew v0.1 效能與生命週期預算
 
-本文件定義 QuotaPulse v0.1 的初始工程預算、2026-08-26 至 2026-08-27 的生命週期稽核結果，以及 Release 長時間測試方式。預算數字是 acceptance targets；實測結果只代表其註明的單一開發環境與觀察期間。Debug build、單元測試、短暫 smoke run 或單一機器的一小時觀察都不能證明所有環境的長時間穩定。
+本文件定義 QuotaMew v0.1 的初始工程預算、2026-08-26 至 2026-08-27 的生命週期稽核結果，以及 Release 長時間測試方式。預算數字是 acceptance targets；實測結果只代表其註明的單一開發環境與觀察期間。Debug build、單元測試、短暫 smoke run 或單一機器的一小時觀察都不能證明所有環境的長時間穩定。
 
 ## 稽核範圍
 
@@ -18,9 +18,9 @@
 
 | 指標 | v0.1 目標 |
 | --- | --- |
-| QuotaPulse idle RAM | 實務上低於 70 MB；stretch target 低於 50 MB。須另外記錄 app-server child 與 App + child 合計 footprint |
+| QuotaMew idle RAM | 實務上低於 70 MB；stretch target 低於 50 MB。須另外記錄 app-server child 與 App + child 合計 footprint |
 | Idle CPU | 接近 0%，正常穩態低於 1%；沒有刷新、畫面更新或通知工作時不應持續喚醒 |
-| 記憶體趨勢 | warm-up 後不可持續單調成長；8 小時或 100 次刷新後，QuotaPulse RSS 漂移應低於 10 MB，超出即調查 |
+| 記憶體趨勢 | warm-up 後不可持續單調成長；8 小時或 100 次刷新後，QuotaMew RSS 漂移應低於 10 MB，超出即調查 |
 | Codex app-server children | 尚未建立 connection 時 0；健康連線期間恰好 1；重連與 shutdown 後舊 child 為 0 |
 | Concurrent provider refreshes | 全 App 最多 1；providers 依序刷新 |
 | Codex stdout readers | 每個健康 connection 恰好 1；replacement 啟動前舊 reader 必須結束 |
@@ -37,11 +37,11 @@
 
 | 區域 | 設計目標 | 本次觀察結果 | 判讀與限制 |
 | --- | --- | --- | --- |
-| Idle memory | 實務上低於 70 MB；stretch target 低於 50 MB | QuotaPulse 約 48 MB，約一小時內大致穩定，沒有觀察到持續或單調成長 | 在這部機器與本次量測方式下達到 stretch target。這不等同證明不存在 memory leak，仍須做 8／24 小時 Release soak 與 retained-allocation／FD 趨勢檢查 |
+| Idle memory | 實務上低於 70 MB；stretch target 低於 50 MB | QuotaMew 約 48 MB，約一小時內大致穩定，沒有觀察到持續或單調成長 | 在這部機器與本次量測方式下達到 stretch target。這不等同證明不存在 memory leak，仍須做 8／24 小時 Release soak 與 retained-allocation／FD 趨勢檢查 |
 | Menu／Settings memory | 關閉 UI 後應回到接近 warm baseline，不應每次開啟固定累積 | 開啟 menu 或 Settings 時可短暫到約 70 MB，約 0.5–1 秒回到接近 48 MB | 回落速度與沒有累積趨勢，符合 Swift／SwiftUI view 建立、layout、allocator cache 等短暫配置行為；目前沒有 retained-object 證據，不針對此尖峰最佳化 |
 | Refresh memory | 工作完成後應回到接近既有 plateau | 手動／provider refresh 約暫增 10–20 MB，之後回落；多次刷新沒有 progressive growth | 符合 bounded JSON decoding、snapshot replacement 與 process I/O 的短暫配置；尚未以 100 次 refresh 或 Allocations instrument 量測 retained bytes |
 | Idle CPU | 接近 0%，穩態低於 1% | 正常背景執行時實際觀察為接近 0%，沒有持續背景活動 | 與單一 15 分鐘 sleeping scheduler、可見 UI 的 minute-level `TimelineView` 及無 notification polling loop 的設計一致；本輪沒有保存 wakeup／Energy Log trace |
-| Codex failure path | child 失敗後安全呈現 unavailable／failure，後續可恢復且 child／reader 有界 | 測試期間刻意終止 Codex runtime／app-server，QuotaPulse 維持可用並顯示預期 provider failure state | 實機觀察確認 UI／error path；舊 PID、reader task、pipe 與 FD 的逐項清理結論仍來自目前 source path 與自動測試，不把這次觀察描述成完整 reconnect resource trace |
+| Codex failure path | child 失敗後安全呈現 unavailable／failure，後續可恢復且 child／reader 有界 | 測試期間刻意終止 Codex runtime／app-server，QuotaMew 維持可用並顯示預期 provider failure state | 實機觀察確認 UI／error path；舊 PID、reader task、pipe 與 FD 的逐項清理結論仍來自目前 source path 與自動測試，不把這次觀察描述成完整 reconnect resource trace |
 
 整體而言，本次短時間的 allocation 尖峰都有快速回落，且一小時內沒有 progressive memory growth 或持續 idle CPU。這些現象與目前 bounded lifecycle 設計相容，沒有證據支持把 menu／Settings 或 refresh 尖峰視為 leak。
 
@@ -91,14 +91,14 @@ Debug 診斷沒有 timer、background sampler、analytics、database 或 append-
 
 ## 長時間 runtime 測試
 
-必須用 Release build、真實 ChatGPT-integrated Codex runtime，並把 QuotaPulse 與 app-server child 分開記錄。至少執行下列矩陣：
+必須用 Release build、真實 ChatGPT-integrated Codex runtime，並把 QuotaMew 與 app-server child 分開記錄。至少執行下列矩陣：
 
 1. 在 launch、10、30、60 分鐘建立 checkpoint，之後繼續做 8 小時；發行前至少做一次 24 小時 soak。
 2. 在健康 connection 上執行 1、10、100 次手動刷新，確認 PID 不變、child 數為 1、request 不重疊。
 3. 在 refresh 中終止 child、模擬 timeout／離線並恢復，至少做 25 次 reconnect；每次確認舊 PID 消失後才出現 replacement。
 4. 反覆開關 menu 200 次並切換 Settings，觀察 `TimelineView`、Swift tasks、threads 與 allocations 是否回到穩態。
-5. Quit App 後確認沒有以 QuotaPulse 為來源的 app-server child、open pipe 或 zombie process。
+5. Quit App 後確認沒有以 QuotaMew 為來源的 app-server child、open pipe 或 zombie process。
 
-每個 checkpoint 記錄：QuotaPulse RSS／physical footprint、child RSS、合計 footprint、CPU、thread count、open file descriptor count、app-server PID/count、Swift task 與 allocation 趨勢。使用 Activity Monitor 做基線，Instruments 的 Allocations、Leaks、VM Tracker、Time Profiler 與 System Trace 做成長來源定位。
+每個 checkpoint 記錄：QuotaMew RSS／physical footprint、child RSS、合計 footprint、CPU、thread count、open file descriptor count、app-server PID/count、Swift task 與 allocation 趨勢。使用 Activity Monitor 做基線，Instruments 的 Allocations、Leaks、VM Tracker、Time Profiler 與 System Trace 做成長來源定位。
 
 驗收重點不是單一最低讀數，而是 warm-up 後沒有持續斜率：RSS、FD、threads、reader tasks 與 child count 應在刷新或重連後回到固定範圍。任何每次 refresh 都固定增加的 retained bytes、FD 或 task，即使尚未超過 70 MB，也視為 v0.1 blocker。

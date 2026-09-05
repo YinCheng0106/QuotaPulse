@@ -1,6 +1,6 @@
-# QuotaPulse v0.1 長時間 Runtime 驗證
+# QuotaMew v0.1 長時間 Runtime 驗證
 
-本文件是 QuotaPulse v0.1 的人工 runtime 測試手冊。目標是找出長時間執行、反覆刷新、重連、Settings／menu lifecycle 與通知流程中的累積問題；不是用單元測試取代 soak test，也不是用單一記憶體讀數判定 memory leak。
+本文件是 QuotaMew v0.1 的人工 runtime 測試手冊。目標是找出長時間執行、反覆刷新、重連、Settings／menu lifecycle 與通知流程中的累積問題；不是用單元測試取代 soak test，也不是用單一記憶體讀數判定 memory leak。
 
 效能門檻以 [`docs/PERFORMANCE.md`](PERFORMANCE.md) 為唯一來源。本文件負責測試步驟與紀錄格式。
 
@@ -9,8 +9,8 @@
 - macOS 14 以上。
 - Xcode 與 Command Line Tools 可正常使用。
 - ChatGPT.app 可正常啟動，而且其整合 Codex runtime 已登入並可取得額度。
-- 測試期間避免同時執行另一份 QuotaPulse。
-- 每次 Xcode Run、LaunchServices launch 或 Computer Use 前，先以 QuotaPulse 的正常 Quit 結束既有 Debug process，並確認沒有另一個相同 bundle host；不要用 `open -n` 或同時保留 Xcode Run 與 DerivedData launch。人工 menu-bar acceptance 不得從 ChatGPT／Codex 擁有的 shell 直接執行 app 內的 Mach-O；應從 Finder、Spotlight 或 `/usr/bin/open <QuotaPulse.app>` 啟動 app bundle。
+- 測試期間避免同時執行另一份 QuotaMew。
+- 每次 Xcode Run、LaunchServices launch 或 Computer Use 前，先以 QuotaMew 的正常 Quit 結束既有 Debug process，並確認沒有另一個相同 bundle host；不要用 `open -n` 或同時保留 Xcode Run 與 DerivedData launch。人工 menu-bar acceptance 不得從 ChatGPT／Codex 擁有的 shell 直接執行 app 內的 Mach-O；應從 Finder、Spotlight 或 `/usr/bin/open <QuotaMew.app>` 啟動 app bundle。
 - 測試前記錄 macOS、Xcode、ChatGPT.app 與 Codex runtime 版本；不得記錄 credential、token、provider raw response、prompt、conversation、session 或私密路徑。
 - 先執行完整 XCTest；自動測試通過只代表既有不變量仍成立，不代表長時間穩定。
 
@@ -21,29 +21,29 @@
 
 ### 開發與正式 bundle identity
 
-QuotaPulse 使用同一個 app target，透過 Xcode build configuration 隔離 macOS 以 bundle identifier 管理的狀態：
+QuotaMew 使用同一個 app target，透過 Xcode build configuration 隔離 macOS 以 bundle identifier 管理的狀態：
 
 | Configuration | Bundle identifier | Display name |
 | --- | --- | --- |
-| Debug | `dev.quotapulse.development.app` | `QuotaPulse Debug` |
-| Release | `dev.quotapulse.app` | `QuotaPulse` |
+| Debug | `dev.quotapulse.development.app` | `QuotaMew Debug` |
+| Release | `dev.quotapulse.app` | `QuotaMew` |
 
 因此平常從 Xcode Run 啟動 Debug 時，`NSStatusItem` 的 stable autosave identity、Control Center 狀態、`SMAppService.mainApp` 的 Launch at Login registration、`UserDefaults.standard` domain 與 `UNUserNotificationCenter.current()` 的權限／通知都屬於 Debug identity，不會沿用或寫入 Release identity。兩者不使用 shared preferences，也沒有 App Group entitlement；Debug 首次啟動看到預設設定是預期行為，不應從 Release preferences 手動搬移。
 
-`QuotaPulse.app` 檔名與 `QuotaPulse` executable 刻意維持不變，讓 test host 與既有指令保持穩定；在 Finder、系統通知與相關 macOS 設定中，Debug 以 `QuotaPulse Debug` 顯示。要驗證 Release runtime 時，務必明確使用 Release 產物的完整路徑，不要把 Debug build 複製、改名或註冊成 production app。
+目前產物檔名與 executable 使用 `QuotaMew.app`／`QuotaMew`，test host 與操作指令也必須使用這組名稱；在 Finder、系統通知與相關 macOS 設定中，Debug 以 `QuotaMew Debug` 顯示。要驗證 Release runtime 時，務必明確使用 Release 產物的完整路徑，不要把 Debug build 複製、改名或註冊成 production app。
 
 App-hosted live tests 的 UserDefaults opt-in 也必須寫入 Debug domain：`runLiveNotificationTest` 與 `runLiveCodexProviderTest` 都使用 `dev.quotapulse.development.app`，測試後立即刪除。不要再把這些 development-only keys 寫入 `dev.quotapulse.app`。
 
-一般 XCTest 也是 app-hosted，但 production composition root 會在 controller factory 執行前辨識 XCTest，完全略過 `StatusItemController`／`NSStatusItem` 建立。`QuotaPulse.xcscheme` 因此恢復 `parallelizable = YES`；完整 suite 的 acceptance gate 是所有並行 test-host process 都建立零 status item，必要時再用 Control Center read-only log 抽查。Controller 行為由 injected fake status item／popover 的單元測試覆蓋，不靠真實 system UI。所有直接修改 `SettingsStore` 的 tests 必須繼續使用 UUID suite 並清除 domain；完整測試前後也應抽查 `presentation.menu-bar-extra.requested` 沒有改變。System-level Control Center allowance 與實際像素可見性不是普通 XCTest 的驗證項目。
+一般 XCTest 也是 app-hosted，但 production composition root 會在 controller factory 執行前辨識 XCTest，完全略過 `StatusItemController`／`NSStatusItem` 建立。`QuotaMew.xcscheme` 因此恢復 `parallelizable = YES`；完整 suite 的 acceptance gate 是所有並行 test-host process 都建立零 status item，必要時再用 Control Center read-only log 抽查。Controller 行為由 injected fake status item／popover 的單元測試覆蓋，不靠真實 system UI。所有直接修改 `SettingsStore` 的 tests 必須繼續使用 UUID suite 並清除 domain；完整測試前後也應抽查 `presentation.menu-bar-extra.requested` 沒有改變。System-level Control Center allowance 與實際像素可見性不是普通 XCTest 的驗證項目。
 
 ### Foreign-association prevention
 
 1. Debug 永久使用 `dev.quotapulse.development.app`，Release 永久使用 `dev.quotapulse.app`；不得以輪替 identity 當成修復。
-2. Menu bar 人工驗證必須從 fresh Debug app bundle 透過 LaunchServices 啟動，並先確認只有一個 QuotaPulse process／status-item host。
+2. Menu bar 人工驗證必須從 fresh Debug app bundle 透過 LaunchServices 啟動，並先確認只有一個 QuotaMew process／status-item host。
 3. Build-only 不得啟動 App。普通 XCTest 可並行，但所有 test-host process 必須建立零 status item。
-4. Helper process 不得建立 QuotaPulse status item，也不得同時有多個 process host 同一個 item。
+4. Helper process 不得建立 QuotaMew status item，也不得同時有多個 process host 同一個 item。
 5. 不得由 parent PID／responsible process 單獨推論 Control Center ownership。至少同時記錄 LaunchServices bundle identity、executable path 與 unified log 中的 status-item host identifier。
-6. macOS 26.6.2 的 read-only evidence 顯示，從 Codex-owned shell 直接執行 QuotaPulse Mach-O 時，LaunchServices 會保留正確 QuotaPulse bundle identity，但把 inferred `parentASN` 記為 ChatGPT；同一 app bundle 經 `open` 啟動時則由 PID 1 啟動且沒有該 inferred parent。Control Center host 仍必須另外確認，不得只由 ancestry 推論 ownership。
+6. macOS 26.6.2 的歷史 read-only evidence 顯示，從 Codex-owned shell 直接執行當時仍名為 QuotaPulse 的 Mach-O 時，LaunchServices 會保留正確的 QuotaPulse bundle identity，但把 inferred `parentASN` 記為 ChatGPT；同一 app bundle 經 `open` 啟動時則由 PID 1 啟動且沒有該 inferred parent。Control Center host 仍必須另外確認，不得只由 ancestry 推論 ownership。
 7. 歷史 stale association 不得透過 Control Center 私有檔案、protected preferences、private frameworks、`defaults` workaround 或 bundle-ID rotation 修復。
 
 ### Final clean-user Release evidence
@@ -59,7 +59,7 @@ Final status: **Hybrid NSStatusItem migration COMPLETE; Milestone A COMPLETE / f
 - Debug stable autosave identity 固定為 `dev.quotapulse.development.app.primary-status-item`；Release 固定為 `dev.quotapulse.app.primary-status-item`。2026-09-02 的 temporary `primary-status-item-v2` 實驗沒有中斷 ChatGPT cascade，因此不得保留 v2 或繼續輪替 identity。
 - 標準 button 固定使用 template SF Symbol、`.imageLeading`、`imageHugsTitle = true`、`.scaleProportionallyDown` 與沒有前後空白的 monospaced-digit title。
 - `NSStatusItem` 以 `variableLength` 建立，但內容設定後的最終 `length` 必須由 `button.intrinsicContentSize.width` 導出，且不小於 `NSStatusBar.thickness`。不得用固定 percentage 寬度、空白、負 kerning 或 custom view 壓縮。
-- 人工量測 `—`、`0%`、`61%`、`100%` 時，分別記錄 item length、button bounds、intrinsic width、image/title rect；拖曳前後另外記錄 button frame。frame 外的鄰接 spacing、overflow 與 notch placement 屬 macOS，不應用 QuotaPulse 內容 hack 消除。
+- 人工量測 `—`、`0%`、`61%`、`100%` 時，分別記錄 item length、button bounds、intrinsic width、image/title rect；拖曳前後另外記錄 button frame。frame 外的鄰接 spacing、overflow 與 notch placement 屬 macOS，不應用 QuotaMew 內容 hack 消除。
 
 ### Menu bar label 的證據邊界
 
@@ -69,35 +69,35 @@ Final status: **Hybrid NSStatusItem migration COMPLETE; Milestone A COMPLETE / f
 2. `SettingsIntegrationTests.testMenuBarPresentationObservationInvalidatesForPinAndUsageModeChanges` 只驗證 SwiftUI Observation 讀取的 runtime model 會因 pin 與 Remaining／Used 改變而 invalidated，並驗證這些變更不觸發 provider refresh、notification 或 reset pipeline。
 3. XCTest 與 controller fake 都不能證明 macOS system status item 實際渲染文字。修改 label composition 後，必須用 fresh Debug artifact、單一 `dev.quotapulse.development.app` process 與真實選單列做人工檢查：production standard status button 應同時顯示 template icon 與 compact percentage／placeholder。不得將 DEBUG probe、timer 或 bundle identity workaround 留在 production。
 
-做視覺比對時，讓 Finder 等選單較短的 App 位於前景。macOS 可能因前景 App 選單與其他 status items 佔用寬度而暫時隱藏整個 QuotaPulse item；不要把相鄰第三方圖示誤認為 QuotaPulse，也不要由 process、UserDefaults 或 Control Center toggle 推論實際可見性。
+做視覺比對時，讓 Finder 等選單較短的 App 位於前景。macOS 可能因前景 App 選單與其他 status items 佔用寬度而暫時隱藏整個 QuotaMew item；不要把相鄰第三方圖示誤認為 QuotaMew，也不要由 process、UserDefaults 或 Control Center toggle 推論實際可見性。
 
 ### MenuBar hide／show 生命週期
 
-QuotaPulse 的 AppKit controller 與 status item visibility 分離；`Show Menu Bar Item` OFF 只保存 hide intent 並設定同一個 `NSStatusItem.isVisible = false`，process 應繼續運作。四項證據必須分列：
+QuotaMew 的 AppKit controller 與 status item visibility 分離；`Show Menu Bar Item` OFF 只保存 hide intent 並設定同一個 `NSStatusItem.isVisible = false`，process 應繼續運作。四項證據必須分列：
 
-1. `presentation.menu-bar-extra.requested`：沿用舊 key 以保留 migration 的 QuotaPulse 使用者意圖，只有 Settings／recovery action 可寫。
+1. `presentation.menu-bar-extra.requested`：沿用舊 key 以保留 migration 的 QuotaMew 使用者意圖，只有 Settings／recovery action 可寫。
 2. `SettingsModel.isMenuBarItemVisible`：本次 process 的 public logical visibility projection；`NSStatusItem.isVisible` KVO 可改成 `false`，但不得回寫 persisted intent。
 3. Control Center app-status-item host：unified log 可只讀確認哪個 process／bundle 正在註冊與請求 visibility，但這不是可用的產品 API。
-4. 實際 status item 像素可見性／Control Center allowance：macOS 最終決定，沒有 QuotaPulse 可用的公開權威查詢 API；`isVisible == true` 也不保證目前畫面一定看得見。
+4. 實際 status item 像素可見性／Control Center allowance：macOS 最終決定，沒有 QuotaMew 可用的公開權威查詢 API；`isVisible == true` 也不保證目前畫面一定看得見。
 
 每次生命週期修改都要用 fresh Debug artifact 執行以下序列，不使用任意 sleep，也不讀寫 Control Center 私有 preference：
 
 1. 確認 requested ON，啟動單一 `dev.quotapulse.development.app` process，記錄 PID 與實際 menu bar 畫面。
 2. 開啟 Settings，切換 OFF；確認 toggle 與 runtime status 立即變成 hidden、status item 消失，但同一 PID 仍存在。
-3. 查詢該 PID 的 Unified Log，確認沒有 assertion、uncaught exception、crash signal 或 termination sequence；再檢查 `~/Library/Logs/DiagnosticReports` 沒有新的 QuotaPulse report。
+3. 查詢該 PID 的 Unified Log，確認沒有 assertion、uncaught exception、crash signal 或 termination sequence；再檢查 `~/Library/Logs/DiagnosticReports` 沒有新的 QuotaMew report。
 4. 關閉 Settings，使 App 完全隱藏；從 Finder／Spotlight 明確重新開啟同一 artifact。確認 recovery window 可達，沒有永久 Dock icon。
 5. 按 Show；確認 persisted intent 與 logical visibility 都回到 true，且仍是同一 PID／同一 controller／同一 status item。視窗應在 shared model 傳遞 KVO change 後關閉。再人工確認 menu bar label 的 icon、percentage、Automatic／pin 與 Remaining／Used。
-6. 若只做 read-only 系統檢查，可到「系統設定」→「選單列」記錄 QuotaPulse 列出的狀態。改動 Allow in the Menu Bar 屬 system-setting mutation，需另行明確確認；不得使用 `defaults`、`group.com.apple.controlcenter`、受保護 preference file 或 private API。
+6. 若只做 read-only 系統檢查，可到「系統設定」→「選單列」記錄 QuotaMew 列出的狀態。改動 Allow in the Menu Bar 屬 system-setting mutation，需另行明確確認；不得使用 `defaults`、`group.com.apple.controlcenter`、受保護 preference file 或 private API。
 
 基線消失若要分類，先看 exit status、`App termination approved`／`Termination complete` 等 AppKit log、Xcode console 與 crash report，再判斷是正常自動／明確終止或真正 crash。關閉 Settings toggle 本身不得呼叫 `terminate`。目前仍保留兩個刻意正常終止點：hidden 的 login-item launch 安靜退出；使用者在 hidden recovery 中按 Quit 或關閉唯一復原視窗時退出，避免不可達的 invisible process。
 
-若要做實際 Launch at Login register／restart 測試，先把已簽章 Debug artifact 安裝到獨立且穩定的 `/Applications/QuotaPulse Debug.app`，再從該路徑啟用；不要覆蓋 `/Applications/QuotaPulse.app`。用 `sfltool dumpbtm` 確認紀錄屬於 `dev.quotapulse.development.app`，測試完成後先在 QuotaPulse Debug 關閉登入時啟動，再移除測試 artifact。DerivedData 或 `/tmp` 啟動只適合確認 UI／identity，不足以宣稱 installed-app registration 與重新登入已通過。
+若要做實際 Launch at Login register／restart 測試，先把已簽章 Debug artifact 安裝到獨立且穩定的 `/Applications/QuotaMew Debug.app`，再從該路徑啟用；不要覆蓋 `/Applications/QuotaMew.app`。用 `sfltool dumpbtm` 確認紀錄屬於 `dev.quotapulse.development.app`，測試完成後先在 QuotaMew Debug 關閉登入時啟動，再移除測試 artifact。DerivedData 或 `/tmp` 啟動只適合確認 UI／identity，不足以宣稱 installed-app registration 與重新登入已通過。
 
 ## 2. 建置與啟動
 
 ### Xcode
 
-在 Xcode 開啟 `QuotaPulse.xcodeproj`，選擇 `QuotaPulse` scheme 與 `My Mac`。
+在 Xcode 開啟 `QuotaMew.xcodeproj`，選擇 `QuotaMew` scheme 與 `My Mac`。
 
 - Diagnostics run：使用 Debug，按 Run。
 - Performance soak：Edit Scheme > Run > Build Configuration 改成 Release，再按 Run。
@@ -108,28 +108,28 @@ QuotaPulse 的 AppKit controller 與 status item visibility 分離；`Show Menu 
 
 ```sh
 /usr/bin/xcodebuild \
-  -project QuotaPulse.xcodeproj \
-  -scheme QuotaPulse \
+  -project QuotaMew.xcodeproj \
+  -scheme QuotaMew \
   -configuration Debug \
   -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath /tmp/QuotaPulseRuntime-Debug \
+  -derivedDataPath /tmp/QuotaMewRuntime-Debug \
   build
 
-/usr/bin/open /tmp/QuotaPulseRuntime-Debug/Build/Products/Debug/QuotaPulse.app
+/usr/bin/open /tmp/QuotaMewRuntime-Debug/Build/Products/Debug/QuotaMew.app
 ```
 
 Release：
 
 ```sh
 /usr/bin/xcodebuild \
-  -project QuotaPulse.xcodeproj \
-  -scheme QuotaPulse \
+  -project QuotaMew.xcodeproj \
+  -scheme QuotaMew \
   -configuration Release \
   -destination 'platform=macOS,arch=arm64' \
-  -derivedDataPath /tmp/QuotaPulseRuntime-Release \
+  -derivedDataPath /tmp/QuotaMewRuntime-Release \
   build
 
-/usr/bin/open /tmp/QuotaPulseRuntime-Release/Build/Products/Release/QuotaPulse.app
+/usr/bin/open /tmp/QuotaMewRuntime-Release/Build/Products/Release/QuotaMew.app
 ```
 
 ## 3. DEBUG runtime snapshots
@@ -148,7 +148,7 @@ Debug build 的 Settings > Development 有 `Log runtime snapshot`。它只在按
 
 | 欄位 | 意義 | 健康值 |
 | --- | --- | --- |
-| `memory_bytes` | QuotaPulse process 的 `phys_footprint` | 看趨勢，不以單點判定；Release 預算仍以外部量測為準 |
+| `memory_bytes` | QuotaMew process 的 `phys_footprint` | 看趨勢，不以單點判定；Release 預算仍以外部量測為準 |
 | `app_refresh_active` / `app_refresh_max` | App-level refresh 數與本次 process 觀察到的最大值 | current 0 或 1；max 1 |
 | `provider_refresh_active` / `provider_refresh_max` | 正在執行的 provider fetch 總數與最大值 | current 0 或 1；max 1 |
 | `refresh_in_flight` | 是否有 App-level refresh | 閒置時 `false` |
@@ -156,13 +156,13 @@ Debug build 的 Settings > Development 有 `Log runtime snapshot`。它只在按
 | `last_success_epoch` | 最近一次至少一個 provider 成功的 refresh | 成功後更新；全失敗時不虛構成功 |
 | `scheduler` / `refresh_scheduler_count` | 排程狀態與 sleeping scheduler 數 | 閒置通常 `scheduled` / 1；刷新中 0；sleep 時 `suspended_for_sleep` / 0 |
 | `next_refresh_epoch` / `backoff_failures` | 下次 deadline 與目前 failure backoff 階段 | 正常約 15 分鐘；失敗依 1／2／5／15／30 分鐘 |
-| `codex_state` / `codex_pids` / `codex_process_count` | QuotaPulse 擁有的 Codex connection 狀態與 child PID | 健康後 `healthy`、1 個 PID、count 1 |
+| `codex_state` / `codex_pids` / `codex_process_count` | QuotaMew 擁有的 Codex connection 狀態與 child PID | 健康後 `healthy`、1 個 PID、count 1 |
 | `codex_stdout_readers` / `codex_reconnects` | 目前 reader 數與 process 內累計 replacement 次數 | 健康時 reader 1；每次有效重連 reconnect 加 1 |
 | `pending_notifications` | identifier 以 `quotapulse.` 開頭的 pending request 數 | 有界；測試通知重複排程仍最多一個相同 identifier |
 | `notification_dedup_entries` | bounded reset-notification dedup entries | 0...32 |
 | `providers` | 正規化 provider availability | 只有安全狀態，不含 raw error 或 payload |
 
-`codex_pids` 是 QuotaPulse 自身啟動並觀察到的 child。若 child 被外部終止，snapshot 會在下一次 connection health check／refresh 後反映；外部 process table 仍是即時來源。
+`codex_pids` 是 QuotaMew 自身啟動並觀察到的 child。若 child 被外部終止，snapshot 會在下一次 connection health check／refresh 後反映；外部 process table 仍是即時來源。
 
 ### 選擇性 SwiftUI invalidation tracing
 
@@ -176,11 +176,11 @@ QUOTAPULSE_DEBUG_LOG_SWIFTUI_CHANGES=1
 
 ## 4. 外部量測
 
-取得目前 QuotaPulse PID：
+取得目前 QuotaMew PID：
 
 ```sh
-QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
-/bin/ps -p "$QUOTAPULSE_PID" -o pid=,%cpu=,rss=,etime=,state=,command=
+QUOTAMEW_PID=$(/usr/bin/pgrep -x QuotaMew | /usr/bin/tail -n 1)
+/bin/ps -p "$QUOTAMEW_PID" -o pid=,%cpu=,rss=,etime=,state=,command=
 ```
 
 `ps` 的 RSS 單位是 KiB。Activity Monitor 的 Memory／Real Memory 與 Debug snapshot 的 `phys_footprint` 定義不同；同一張結果表必須固定使用同一來源，不能混在同一欄比較。
@@ -188,22 +188,22 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 短時間觀察 CPU、memory 與 thread count：
 
 ```sh
-/usr/bin/top -l 5 -s 2 -pid "$QUOTAPULSE_PID" -stats pid,cpu,mem,threads
+/usr/bin/top -l 5 -s 2 -pid "$QUOTAMEW_PID" -stats pid,cpu,mem,threads
 ```
 
 記錄 open-file 列數供趨勢比較：
 
 ```sh
-/usr/sbin/lsof -n -P -p "$QUOTAPULSE_PID" | /usr/bin/wc -l
+/usr/sbin/lsof -n -P -p "$QUOTAMEW_PID" | /usr/bin/wc -l
 ```
 
 此數字包含不只 pipe 的 open-file records，因此只能在相同命令與相同測試條件下比較趨勢。若持續增加，再用完整 `lsof` output 與 Instruments 定位；回報時先移除私密路徑。
 
-列出 QuotaPulse 的直接 Codex app-server child：
+列出 QuotaMew 的直接 Codex app-server child：
 
 ```sh
 /bin/ps -axo pid=,ppid=,%cpu=,rss=,etime=,command= | \
-  /usr/bin/awk -v parent="$QUOTAPULSE_PID" \
+  /usr/bin/awk -v parent="$QUOTAMEW_PID" \
   '$2 == parent && $0 ~ /codex[[:space:]]+app-server/'
 ```
 
@@ -211,11 +211,11 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 
 ```sh
 /bin/ps -axo ppid=,command= | \
-  /usr/bin/awk -v parent="$QUOTAPULSE_PID" \
+  /usr/bin/awk -v parent="$QUOTAMEW_PID" \
   '$1 == parent && $0 ~ /codex[[:space:]]+app-server/ { count += 1 } END { print count + 0 }'
 ```
 
-不要用全系統的 `pgrep -f 'codex app-server'` 直接當 QuotaPulse child 數；ChatGPT、Codex 或其他開發工具也可能有自己的 app-server。
+不要用全系統的 `pgrep -f 'codex app-server'` 直接當 QuotaMew child 數；ChatGPT、Codex 或其他開發工具也可能有自己的 app-server。
 
 需要定位 retained allocations、Swift tasks、wakeups 或 view updates 時，依序使用 Instruments：
 
@@ -227,7 +227,7 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 
 ## 5. Test A — Idle stability
 
-1. 先做 Release run。冷啟動 QuotaPulse，打開 menu 一次，確認 Codex 顯示正常後關閉 menu。
+1. 先做 Release run。冷啟動 QuotaMew，打開 menu 一次，確認 Codex 顯示正常後關閉 menu。
 2. 在 launch、10、30、60 分鐘記錄 Activity Monitor／`ps`／`top`、direct child count、child PID、thread 與 `lsof` 列數。
 3. 發行前另做 8 小時 soak，至少一次 24 小時 soak。
 4. 再做 Debug diagnostics run；在相同 checkpoint 打開 Settings，按 `Log runtime snapshot`，保存 snapshot line 後關閉 Settings。
@@ -243,7 +243,7 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 
 ## 6. Test B — Repeated manual refresh
 
-1. 記錄開始前的 QuotaPulse RAM、child PID/count、thread、`lsof` 與 Debug snapshot。
+1. 記錄開始前的 QuotaMew RAM、child PID/count、thread、`lsof` 與 Debug snapshot。
 2. 約 20 次按下 menu 的 Refresh／Command-R。可在一輪仍進行時連續要求數次，再等按鈕恢復。
 3. 每 5 次記錄一次 snapshot；第 20 次後等待 1 至 2 分鐘再量測 RAM、CPU、child、thread 與 open files。
 4. 若用 Instruments，同時觀察 Swift tasks 與 allocations 是否在工作結束後回落。
@@ -257,24 +257,24 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 
 ## 7. Test C — Provider failure and recovery
 
-這個測試只暫停 QuotaPulse 自己的 child，不修改、搬動、覆寫或重新簽署 ChatGPT.app。
+這個測試只暫停 QuotaMew 自己的 child，不修改、搬動、覆寫或重新簽署 ChatGPT.app。
 
-1. 用 direct-child 命令取得並再次確認 child 的 PPID 等於 `QUOTAPULSE_PID`，保存為 `QUOTAPULSE_CODEX_PID`。
+1. 用 direct-child 命令取得並再次確認 child 的 PPID 等於 `QUOTAMEW_PID`，保存為 `QUOTAMEW_CODEX_PID`。
 2. 執行：
 
    ```sh
-   /bin/kill -STOP "$QUOTAPULSE_CODEX_PID"
+   /bin/kill -STOP "$QUOTAMEW_CODEX_PID"
    ```
 
-3. 立刻在 QuotaPulse 手動刷新。停止中的 app-server 應在約 5 秒 request timeout 後被 QuotaPulse 關閉；cleanup 必要時會使用 SIGKILL。
+3. 立刻在 QuotaMew 手動刷新。停止中的 app-server 應在約 5 秒 request timeout 後被 QuotaMew 關閉；cleanup 必要時會使用 SIGKILL。
 4. 記錄失敗 snapshot。預期 `backoff_failures=1`，scheduler deadline 約 1 分鐘後，舊 PID 不再存在：
 
    ```sh
-   /bin/kill -0 "$QUOTAPULSE_CODEX_PID"
+   /bin/kill -0 "$QUOTAMEW_CODEX_PID"
    ```
 
    預期回傳 `No such process`。若 PID 已被系統重用，必須重新核對 PPID 與 command，不可只相信 PID 數字。
-5. 明確手動刷新以繞過等待中的 backoff，讓 QuotaPulse 建立 replacement。
+5. 明確手動刷新以繞過等待中的 backoff，讓 QuotaMew 建立 replacement。
 6. 記錄新 snapshot 與 direct-child process table。
 
 預期：
@@ -284,11 +284,11 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 - 正常刷新恢復，failure count 回到 0，下一輪約 15 分鐘。
 - error 與 log 不包含 provider raw output，也沒有隨重連累積的錯誤 history。
 
-若測試步驟中途停止，對舊 PID 執行 `/bin/kill -CONT "$QUOTAPULSE_CODEX_PID"`；若 QuotaPulse 已完成 timeout cleanup，該 PID 應已不存在。
+若測試步驟中途停止，對舊 PID 執行 `/bin/kill -CONT "$QUOTAMEW_CODEX_PID"`；若 QuotaMew 已完成 timeout cleanup，該 PID 應已不存在。
 
 ## 8. Test D — Active Codex usage
 
-1. 保持 QuotaPulse 執行，同時正常使用 Codex 開發至少一個自動刷新週期。
+1. 保持 QuotaMew 執行，同時正常使用 Codex 開發至少一個自動刷新週期。
 2. 在 Codex 活動前、活動中、約 15 分鐘自動刷新後與 menu interaction refresh 後記錄 usage 顯示、timestamp、CPU、RAM、child PID/count 與 snapshot。
 3. 關閉 menu 後再觀察 2 至 5 分鐘 idle CPU。
 
@@ -296,7 +296,7 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 
 - usage 只在既有 refresh cadence／menu stale／manual refresh 更新。
 - 倒數的 minute tick 不觸發 provider refresh。
-- QuotaPulse child count 維持 1；其他工具自己的 app-server 不算入。
+- QuotaMew child count 維持 1；其他工具自己的 app-server 不算入。
 - menu 關閉後 CPU 回到接近 0%，memory 不持續成長。
 
 ## 9. Test E — Settings / UI lifecycle
@@ -321,8 +321,8 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 1. 使用 Debug build；先記錄 snapshot 的 `pending_notifications` 與 `notification_dedup_entries`。
 2. 在 Settings > Development 連續按 `Send test notification` 多次，再立刻按 `Log runtime snapshot`。
 3. 測試通知使用固定 identifier，重複測試應替換同一 request，不應線性增加 pending count。
-4. 反覆刷新與切換 notification／threshold settings，確認停用時只移除 QuotaPulse 自己的相符 pending requests。
-5. Quit 並重新啟動 QuotaPulse，再次記錄 snapshot；若真實 usage 剛好符合 reset threshold，確認相同 logical reset generation 不重送。
+4. 反覆刷新與切換 notification／threshold settings，確認停用時只移除 QuotaMew 自己的相符 pending requests。
+5. Quit 並重新啟動 QuotaMew，再次記錄 snapshot；若真實 usage 剛好符合 reset threshold，確認相同 logical reset generation 不重送。
 6. XCTest 仍須覆蓋並行 evaluation、restart dedup、新 reset generation 與 32-entry 上限；人工測試不應製造或竄改真實 provider snapshot。
 
 預期：
@@ -336,7 +336,7 @@ QUOTAPULSE_PID=$(/usr/bin/pgrep -x QuotaPulse | /usr/bin/tail -n 1)
 
 每張表必須註明 build configuration 與數值來源。
 
-| Time | Build | QuotaPulse RAM | CPU | app-server PID | app-server count | Active app refreshes | Active provider refreshes | Scheduler | Threads | Open-file rows | Notes |
+| Time | Build | QuotaMew RAM | CPU | app-server PID | app-server count | Active app refreshes | Active provider refreshes | Scheduler | Threads | Open-file rows | Notes |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- |
 | launch | Release | | | | | n/a | n/a | n/a | | | |
 | 10m | Release | | | | | n/a | n/a | n/a | | | |
@@ -360,7 +360,7 @@ Debug diagnostics 另存 `runtime_snapshot` lines；不要把 Debug `memory_byte
 
 - 每次 refresh、menu open、Settings open 或 reconnect 都固定增加 retained bytes、thread、FD、reader 或 task。
 - warm-up 後 RAM 在數小時內維持正斜率，沒有 plateau；不要只因 allocator 單次擴張就宣告 leak。
-- 同一 QuotaPulse PPID 下同時存在兩個 app-server，或 replacement 出現時舊 PID 尚未被清理。
+- 同一 QuotaMew PPID 下同時存在兩個 app-server，或 replacement 出現時舊 PID 尚未被清理。
 - `app_refresh_max` 或 `provider_refresh_max` 大於 1。
 - 閒置時 scheduler count 不是 1、CPU 長時間高於 1%，或有固定高頻 wakeup。
 - pending notification／dedup entries 隨相同步驟無界增加。
@@ -373,7 +373,7 @@ Issue 至少包含：
 - 測試 A–F 的哪一個 scenario、完整重現步驟與迴圈次數。
 - commit／工作樹識別、Debug 或 Release、macOS／Xcode／ChatGPT／Codex runtime 版本。
 - measurement source 與 checkpoint table；RAM 必須註明 RSS、Activity Monitor Memory 或 `phys_footprint`。
-- sanitized `runtime_snapshot` lines、QuotaPulse direct-child process table、thread 與 open-file trend。
+- sanitized `runtime_snapshot` lines、QuotaMew direct-child process table、thread 與 open-file trend。
 - 最小化 Instruments trace 或 allocation／retain evidence；指出成長斜率與第一次偏離 plateau 的操作。
 - expected 與 actual process/task/timer/notification count。
 - Quit 後 child 是否仍存在。

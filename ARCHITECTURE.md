@@ -1,10 +1,10 @@
-# QuotaPulse 架構
+# QuotaMew 架構
 
 狀態：Milestone 1 實作基準、Codex provider core、Claude Code snapshot provider core、共用應用程式整合、v0.1 reset reminders、provider-agnostic 本機 reset detection、production privacy-safe compatibility diagnostics，以及 provider visibility／disabled semantics，2026-08-31。Production `AppDependencies` 已透過 `UsageProvider` 接入兩個 adapters；SwiftUI previews 保持 mock-only。Claude opt-in status-line bridge 與外部 Reset Intelligence feed 尚未實作。
 
 ## 1. 目標與限制
 
-QuotaPulse v0.1 是原生 macOS 選單列工具，將 Codex 與 Claude Code 的額度視窗資料正規化，並顯示已使用額度、剩餘額度、重設時間與倒數。它不是另一個 AI agent client。
+QuotaMew v0.1 是原生 macOS 選單列工具，將 Codex 與 Claude Code 的額度視窗資料正規化，並顯示已使用額度、剩餘額度、重設時間與倒數。它不是另一個 AI agent client。
 
 架構必須：
 
@@ -54,7 +54,7 @@ NSStatusItem + SwiftUI popover / Settings
           |
           +----> CodexProvider -----------------------> Codex app-server
           |
-          +----> ClaudeProvider ----------------------> QuotaPulse-owned snapshot
+          +----> ClaudeProvider ----------------------> legacy QuotaPulse-owned snapshot
                                                        ^
                                                        |
                                       opt-in status-line bridge（尚未實作）
@@ -127,13 +127,13 @@ Milestone 1 的 `MockUsageProvider` 使用固定規則產生 Codex 與 Claude Co
 
 1. 不經 shell，依序從標準位置與 `NSWorkspace` 發現的 ChatGPT.app 整合 runtime、舊 Codex.app、常見 CLI locations 與 GUI process 的受限 `PATH` 尋找 `codex` 執行檔
 2. 使用 `Process` 啟動 `codex app-server`
-3. 傳送含 QuotaPulse client metadata 的 `initialize`
+3. 傳送含 QuotaMew client metadata 的 `initialize`
 4. 傳送 `initialized` notification
 5. 呼叫 `account/rateLimits/read`
 6. 從一個或多個 rate-limit buckets 解碼 `usedPercent`、`windowDurationMins` 與 `resetsAt`
 7. 健康時保留同一個 app-server connection 供後續刷新重用；timeout、cancellation、EOF、protocol failure 或 App 結束時才完整替換或關閉 child
 
-此 method 與欄位已有 OpenAI 文件，並由 Codex 管理驗證狀態。QuotaPulse 不得讀取 `~/.codex/auth.json` 或複製 token。Adapter 必須清楚呈現找不到執行檔、尚未登入、不提供 ChatGPT 訂閱額度的 API-key-only 模式、protocol 不相容、timeout 與 payload 格式錯誤。
+此 method 與欄位已有 OpenAI 文件，並由 Codex 管理驗證狀態。QuotaMew 不得讀取 `~/.codex/auth.json` 或複製 token。Adapter 必須清楚呈現找不到執行檔、尚未登入、不提供 ChatGPT 訂閱額度的 API-key-only 模式、protocol 不相容、timeout 與 payload 格式錯誤。
 
 目前實作採單一、按需建立且健康時重用的 app-server。`CodexAppServerClient` actor 合併重疊讀取，connection 只保留一個 stdout reader task 與一筆 response buffer；stderr 直接導向 null device，不建立 reader 或 buffer。每個 request 使用 5 秒 timeout，每行 stdout 上限 1 MiB。timeout、cancellation、EOF、protocol failure、explicit shutdown 或 App termination 都會先關閉 handles、終止並 reap child，再等待 stdout reader 結束；重連完成前不會啟動替代 child。它不讀取 `auth.json`、sessions、logs 或 state databases。
 
@@ -162,22 +162,22 @@ Codex session event 可能包含 `primary` 與 `secondary` 視窗的使用百分
 - `rate_limits.seven_day.used_percentage`
 - `rate_limits.seven_day.resets_at`
 
-Claude Code 會在相關 session event 後啟動已設定的 status-line command，並把小型 JSON 寫入 stdin。QuotaPulse 應使用需要使用者明確同意的 bridge，把最少量 snapshot 以原子方式寫入 `~/Library/Application Support/QuotaPulse/Providers/Claude/`。
+Claude Code 會在相關 session event 後啟動已設定的 status-line command，並把小型 JSON 寫入 stdin。QuotaMew 應使用需要使用者明確同意的 bridge，把最少量 snapshot 以原子方式寫入 legacy `~/Library/Application Support/QuotaPulse/Providers/Claude/`。
 
 只可保留：
 
 - 實際存在的兩個文件化 rate-limit windows
 - 可取得時的 Claude Code version
-- QuotaPulse bridge schema version
+- legacy QuotaMew bridge schema version
 - 本機 capture time
 
 必須捨棄 `cwd`、workspace/repository identity、transcript path、token 數、cost、model、session ID 與所有未知欄位。
 
 限制包括：`rate_limits` 僅為 Claude.ai Pro/Max 訂閱者所文件化；欄位要在 session 第一次 API response 後才出現；任一視窗都可能缺少；更新由事件驅動，Claude Code 閒置時 snapshot 可能過期；安裝 bridge 可能與現有 custom status line 衝突。
 
-Milestone 3 必須設計明確的設定與復原流程。QuotaPulse 不得靜默取代既有 `statusLine.command`。可以產生供現有 script 整合的說明，或在顯示完整設定差異並保留可復原備份後，才安裝 wrapper。
+Milestone 3 必須設計明確的設定與復原流程。QuotaMew 不得靜默取代既有 `statusLine.command`。可以產生供現有 script 整合的說明，或在顯示完整設定差異並保留可復原備份後，才安裝 wrapper。
 
-目前已實作的 `ClaudeProvider` 只讀 QuotaPulse-owned、`schemaVersion: 1` 的 `usage-v1.json`。`ClaudeSnapshotReader` 將輸入限制為 16 KiB，拒絕 missing、unreadable、oversized、malformed 與 future-schema files，並保留 `capturedAt` 供後續 stale policy 使用。它不讀取 `~/.claude`、`~/.claude.json`、transcripts、history、stats 或 credentials。完整本機探索與條件式可靠性說明見 `docs/providers/claude-code.md`。
+目前已實作的 `ClaudeProvider` 只讀 legacy QuotaPulse-owned、`schemaVersion: 1` 的 `usage-v1.json`。`ClaudeSnapshotReader` 將輸入限制為 16 KiB，拒絕 missing、unreadable、oversized、malformed 與 future-schema files，並保留 `capturedAt` 供後續 stale policy 使用。它不讀取 `~/.claude`、`~/.claude.json`、transcripts、history、stats 或 credentials。完整本機探索與條件式可靠性說明見 `docs/providers/claude-code.md`。
 
 本機 Claude Code package metadata 顯示版本 `1.0.43`，早於官方 changelog 加入 status-line `rate_limits` 的 `2.1.80`；因此沒有宣稱完成本機 live quota 驗證。本機也已有 status-line command，本次沒有讀取其值或修改設定。
 
@@ -303,13 +303,13 @@ Completed-reset 通知以 provider 顯示名稱與 normalized window label/durat
 
 ## 10. 設定
 
-QuotaPulse 使用原生 `Settings` scene 與 `@MainActor SettingsStore`。Settings 以原生 `TabView` 固定為 General／Providers／Notifications 三頁：General 包含 app behavior、presentation 與 Diagnostics；Providers 保留 enablement 與 Claude Experimental / Unverified 說明；Notifications 保留所有既有 reminder 與 permission 行為。`SettingsStore` 是 provider enablement、presentation mode、optional pinned provider、通知總開關，以及短視窗 1 小時／30 分鐘與長視窗 24／6／1 小時門檻的單一來源，並以 typed UserDefaults keys 保存；SwiftUI 只透過 `SettingsModel` 修改 store，再由 `UsageService` 與 `NotificationService` 讀取同一份狀態。Provider toggle 先同步通知 `NotificationService` 使舊 lifecycle 失效，再保存設定、更新 `AppModel` 投影，並於 enable 時要求共用 refresh。`SettingsModel.setProvider` 回傳 `Void`；View 只表達使用者意圖，不接收或 await cleanup task。Cleanup 可以非同步完成，因正確性由 service 的 provider generation 與 destructive-point validation 保證，不依賴 SwiftUI call site 記住實作細節。短、長視窗的 1 小時選項彼此獨立，舊版共用 1 小時偏好會作為短視窗偏好的 migration 預設。`NotificationService` 關閉時不再建立提醒，並移除 QuotaPulse 自己的 pending reset requests；關閉單一門檻只移除相符 duration class 的門檻。
+QuotaMew 使用原生 `Settings` scene 與 `@MainActor SettingsStore`。Settings 以原生 `TabView` 固定為 General／Providers／Notifications 三頁：General 包含 app behavior、presentation 與 Diagnostics；Providers 保留 enablement 與 Claude Experimental / Unverified 說明；Notifications 保留所有既有 reminder 與 permission 行為。`SettingsStore` 是 provider enablement、presentation mode、optional pinned provider、通知總開關，以及短視窗 1 小時／30 分鐘與長視窗 24／6／1 小時門檻的單一來源，並以 typed UserDefaults keys 保存；SwiftUI 只透過 `SettingsModel` 修改 store，再由 `UsageService` 與 `NotificationService` 讀取同一份狀態。Provider toggle 先同步通知 `NotificationService` 使舊 lifecycle 失效，再保存設定、更新 `AppModel` 投影，並於 enable 時要求共用 refresh。`SettingsModel.setProvider` 回傳 `Void`；View 只表達使用者意圖，不接收或 await cleanup task。Cleanup 可以非同步完成，因正確性由 service 的 provider generation 與 destructive-point validation 保證，不依賴 SwiftUI call site 記住實作細節。短、長視窗的 1 小時選項彼此獨立，舊版共用 1 小時偏好會作為短視窗偏好的 migration 預設。`NotificationService` 關閉時不再建立提醒，並移除 QuotaMew 自己的 pending reset requests；關閉單一門檻只移除相符 duration class 的門檻。
 
 Launch at Login 使用 `ServiceManagement` 的 `SMAppService.mainApp`。Settings 每次顯示時重新讀取 system status；register／unregister 失敗時保留系統實際狀態並顯示安全錯誤，不把 UI toggle 當成成功依據。
 
-同一個 app target 以 build configuration 分開 macOS bundle identity：Release 保留 production `dev.quotapulse.app`，Debug 使用 `dev.quotapulse.development.app` 並以 `QuotaPulse Debug` 顯示。`PRODUCT_NAME`／executable 維持 `QuotaPulse`，不複製 target。由於 `SMAppService.mainApp`、`UserDefaults.standard`、`UNUserNotificationCenter.current()` 與 macOS 26 Control Center 的第三方 menu bar 狀態都以目前 app identity 為邊界，開發操作只會落在 Debug identity；兩者不共用 preferences，也沒有 App Group entitlement。Debug 因而有自己的首次啟動設定與通知授權，這是刻意隔離而非 migration。
+同一個 app target 以 build configuration 分開 macOS bundle identity：Release 保留 production `dev.quotapulse.app`，Debug 使用 `dev.quotapulse.development.app` 並以 `QuotaMew Debug` 顯示。`PRODUCT_NAME`／executable 維持 `QuotaMew`，不複製 target。由於 `SMAppService.mainApp`、`UserDefaults.standard`、`UNUserNotificationCenter.current()` 與 macOS 26 Control Center 的第三方 menu bar 狀態都以目前 app identity 為邊界，開發操作只會落在 Debug identity；兩者不共用 preferences，也沒有 App Group entitlement。Debug 因而有自己的首次啟動設定與通知授權，這是刻意隔離而非 migration。
 
-選單列生命週期拆成四種不可混用的狀態。`SettingsStore.isMenuBarItemRequested` 是 persisted QuotaPulse user intent，新安裝預設為 `true`；`SettingsModel.isMenuBarItemVisible` 是目前 process 由公開 `NSStatusItem.isVisible` 與 KVO 投影的 logical visibility；Control Center 另為該 QuotaPulse process 註冊並追蹤 system host；實際 status item 是否在目前螢幕有像素，最後仍由 macOS allowance、選單列可用空間、active display 與 system UI 決定，QuotaPulse 沒有公開 API 可權威查詢。KVO 變成 `false` 只更新 logical state，不回寫 UserDefaults；只有 QuotaPulse Settings toggle 與 recovery action 可以保存 intent。
+選單列生命週期拆成四種不可混用的狀態。`SettingsStore.isMenuBarItemRequested` 是 persisted QuotaMew user intent，新安裝預設為 `true`；`SettingsModel.isMenuBarItemVisible` 是目前 process 由公開 `NSStatusItem.isVisible` 與 KVO 投影的 logical visibility；Control Center 另為該 QuotaMew process 註冊並追蹤 system host；實際 status item 是否在目前螢幕有像素，最後仍由 macOS allowance、選單列可用空間、active display 與 system UI 決定，QuotaMew 沒有公開 API 可權威查詢。KVO 變成 `false` 只更新 logical state，不回寫 UserDefaults；只有 QuotaMew Settings toggle 與 recovery action 可以保存 intent。
 
 **CURRENT**：production composition root 只建立一個 `StatusItemController`。Controller 建立並持有唯一 `NSStatusItem`，Debug／Release 分別使用 `dev.quotapulse.development.app.primary-status-item` 與 `dev.quotapulse.app.primary-status-item` 作為 stable `autosaveName`，以一個 `.transient` `NSPopover` 和 `NSHostingController` 呈現既有 `DashboardView`；Dashboard、Settings、providers、refresh、notifications 與 shared `AppModel`／`SettingsModel` 都未複製。Status button 以既有 SF Symbol、template image、monospaced compact percentage 或 unavailable placeholder 呈現，並明確設定 VoiceOver label/value。標準 `NSStatusBarButton` 使用 `.imageLeading`、`imageHugsTitle = true` 與 `.scaleProportionallyDown`；item 先以 `NSStatusItem.variableLength` 建立，再於每次內容更新時以 button 的 `intrinsicContentSize.width` 動態設定公開的 `length`，下限為目前 status bar thickness。此作法沒有固定百分比寬度、人工空白、kerning hack 或 custom view。
 
@@ -317,13 +317,13 @@ Launch at Login 使用 `ServiceManagement` 的 `SMAppService.mainApp`。Settings
 
 Controller 是選單列 shell 的唯一 observation owner：一條 Swift Observation path 讀取 persisted intent 與 `MenuBarPresentation`，一條 KVO observation 讀取 system logical visibility。它記住最後一次已套用的 intent，因此 presentation 更新不會把使用者或 macOS 已移除的 item 反覆插回；recovery action 則可明確 force-show，即使 persisted intent 原本已是 `true`。Open popover 只呼叫既有 `AppModel.menuDidOpen()`；沒有新增 timer、polling、network、scheduler 或 provider I/O。Teardown 會取消 observation、清除 target/action、關閉 popover並移除同一個 status item，且可重複安全呼叫。
 
-`QuotaPulseTests` 仍是 app-hosted XCTest，但 `AppRuntimeEnvironment.shouldCreateStatusItemController` 在 XCTest 為 `false`，app delegate 在任何 controller factory 呼叫前就停止 production setup。因此並行測試不建立 `StatusItemController` 或 `NSStatusItem`，scheme 已恢復 `parallelizable = YES`。Controller-level tests 以 injected fake status item／popover 驗證 create-once、hide/show、system-removal projection、recovery、100 次開關、teardown 與 accessibility；直接測試 `SettingsStore` 的案例繼續使用 UUID test suites 並在結束時移除 domain。Control Center read-only log 可作為零 test-host status item 的附加 system evidence，但不是一般 unit assertion。
+`QuotaMewTests` 仍是 app-hosted XCTest，但 `AppRuntimeEnvironment.shouldCreateStatusItemController` 在 XCTest 為 `false`，app delegate 在任何 controller factory 呼叫前就停止 production setup。因此並行測試不建立 `StatusItemController` 或 `NSStatusItem`，scheme 已恢復 `parallelizable = YES`。Controller-level tests 以 injected fake status item／popover 驗證 create-once、hide/show、system-removal projection、recovery、100 次開關、teardown 與 accessibility；直接測試 `SettingsStore` 的案例繼續使用 UUID test suites 並在結束時移除 domain。Control Center read-only log 可作為零 test-host status item 的附加 system evidence，但不是一般 unit assertion。
 
 明確重新開啟提供隱藏 App 的可達路徑。requested 為 `false` 且由 Finder／Spotlight／`open` 明確啟動時，delegate 先建立一個 hidden controller，再以 SwiftUI-hosted `NSWindow` 顯示最小復原介面；已在背景執行且 logical visibility 為 `false` 時，公開的 `applicationShouldHandleReopen` callback 也顯示同一介面。復原期間暫時把 `NSApplication.ActivationPolicy` 從 accessory 改為 regular，讓視窗與 Dock 可到達；Show action 同步保存 true 並 force-show 同一個 status item，復原視窗在 shared logical state 變成 visible 後關閉，之後恢復 accessory。使用者在仍隱藏時關閉復原視窗會明確、正常退出，避免留下不可達 process。requested 為 `false` 且 `kAEOpenApplication` Apple Event 含公開的 `keyAELaunchedAsLogInItem` 時，在建立 controller 前安靜退出；requested 為 `true` 的 login-item launch 則走正常建立流程。若未來產品要求隱藏時仍在登入後監看 reset，必須另行改變這項政策，不能由 Milestone C 或未實作的 Reset Intelligence 偷渡。
 
-macOS 26 的 Control Center／「系統設定」→「選單列」仍可在 requested 為 `true` 時阻止實際顯示。QuotaPulse 不猜測該 system-managed allowance、不反覆切換 `isVisible`、不寫入 `group.com.apple.controlcenter` 或其他系統偏好，也不使用 private API 或 `defaults` workaround。復原介面只誠實提示使用者必要時到系統設定允許 QuotaPulse；自動測試只能驗證 intent、logical visibility、controller／launch policy，不能宣稱驗證 Control Center allowance 或螢幕上的實際可見性。
+macOS 26 的 Control Center／「系統設定」→「選單列」仍可在 requested 為 `true` 時阻止實際顯示。QuotaMew 不猜測該 system-managed allowance、不反覆切換 `isVisible`、不寫入 `group.com.apple.controlcenter` 或其他系統偏好，也不使用 private API 或 `defaults` workaround。復原介面只誠實提示使用者必要時到系統設定允許 QuotaMew；自動測試只能驗證 intent、logical visibility、controller／launch policy，不能宣稱驗證 Control Center allowance 或螢幕上的實際可見性。
 
-Provider 停用代表「暫時排除於 QuotaPulse 主動監看」，不是刪除 provider。`UsageService` 仍保留 provider 順序與 normalized `.disabled` state，但跳過其 `fetchUsage()`；Dashboard 不顯示 disabled placeholder，其他 providers 繼續依序刷新。全數停用時只顯示一個「No providers enabled」empty state 與原生 `SettingsLink`，Settings 的 toggles 仍可管理並跨 restart 保存。重新啟用不需重啟 App，也不刪除 provider configuration；它會先 re-baseline reset detector，再要求一次共用 refresh，仍經 `RefreshCoordinator` 合併。
+Provider 停用代表「暫時排除於 QuotaMew 主動監看」，不是刪除 provider。`UsageService` 仍保留 provider 順序與 normalized `.disabled` state，但跳過其 `fetchUsage()`；Dashboard 不顯示 disabled placeholder，其他 providers 繼續依序刷新。全數停用時只顯示一個「No providers enabled」empty state 與原生 `SettingsLink`，Settings 的 toggles 仍可管理並跨 restart 保存。重新啟用不需重啟 App，也不刪除 provider configuration；它會先 re-baseline reset detector，再要求一次共用 refresh，仍經 `RefreshCoordinator` 合併。
 
 背景刷新維持固定約 15 分鐘。動態 interval 會介入已完成的 deadline、retry backoff、sleep/wake 與單一 scheduled task invariant；v0.1 不為 5／15／30 分鐘選項擴大該架構。Settings 只顯示目前固定 cadence。
 
@@ -380,10 +380,10 @@ Revision 更新以同 ID 的較高 revision 取代舊表示；`correction` / `re
 ## 13. Milestone 1 檔案結構
 
 ```text
-QuotaPulse.xcodeproj/
-QuotaPulse/
+QuotaMew.xcodeproj/
+QuotaMew/
 ├── App/
-│   ├── QuotaPulseApp.swift
+│   ├── QuotaMewApp.swift
 │   ├── AppModel.swift
 │   └── AppDependencies.swift
 ├── Domain/
@@ -429,7 +429,7 @@ QuotaPulse/
         ├── ProviderDiagnosticsView.swift
         ├── SettingsModel.swift
         └── SettingsView.swift
-QuotaPulseTests/
+QuotaMewTests/
 ├── App/
 ├── Diagnostics/
 ├── Domain/
@@ -483,7 +483,7 @@ Milestone 1 自動測試涵蓋：
 2. 完成目前延後的 Developer ID／notarized distribution 驗證，以及確認是否有意不啟用 App Sandbox。
 3. 決定是否仍需要 GUI executable override；目前已支援 ChatGPT.app 整合 runtime、舊 Codex.app、常見 CLI locations 與 GUI process 繼承的 `PATH`，但不載入 interactive shell 設定。
 4. 實測支援的 Codex versions 與 authentication modes 對 app-server 的相容性。
-5. 決定 QuotaPulse 是否修改 Claude settings，或只產生 opt-in bridge 說明。
+5. 決定 QuotaMew 是否修改 Claude settings，或只產生 opt-in bridge 說明。
 6. 定義現有 Claude status-line command 的保留與復原方式。
 7. 依實際使用回饋確認目前 15 分鐘 presentation freshness label 門檻是否需要調整。
 8. 依 `docs/PERFORMANCE.md` 量測長駐健康 app-server、重複刷新與重連是否符合延遲、記憶體、CPU、file descriptor 與 task 目標。

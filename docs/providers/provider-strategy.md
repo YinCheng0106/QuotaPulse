@@ -4,7 +4,7 @@
 
 ## 1. 決策原則
 
-QuotaPulse 的資料來源必須同時滿足：
+QuotaMew 的資料來源必須同時滿足：
 
 - 回傳 provider 的實際用量，不由 token count、活動量或方案名稱推估
 - 可取得 provider 提供的 reset timestamp；缺少時保持 unavailable
@@ -14,7 +14,7 @@ QuotaPulse 的資料來源必須同時滿足：
 - 不需要積極輪詢，也不維持不必要的長駐 process
 - provider contract 改變時能安全失敗，而不是顯示看似合理的錯誤數值
 
-資料來源的「格式穩定性」與「是否適合 QuotaPulse」是兩個不同判斷。例如 Claude Agent SDK 的 `RateLimitEvent` 有官方文件，但為了取得 event 而啟動 active agent session 並不適合被動 menu bar App。
+資料來源的「格式穩定性」與「是否適合 QuotaMew」是兩個不同判斷。例如 Claude Agent SDK 的 `RateLimitEvent` 有官方文件，但為了取得 event 而啟動 active agent session 並不適合被動 menu bar App。
 
 ## 2. 分類定義
 
@@ -34,13 +34,13 @@ QuotaPulse 的資料來源必須同時滿足：
 | 主要來源分類 | Stable / documented | Stable / documented contract；delivery 為條件式，bridge setup 仍屬 Experimental |
 | 實際用量百分比 | `usedPercent` | `five_hour.used_percentage`、`seven_day.used_percentage` |
 | Reset timestamp | `resetsAt` | `five_hour.resets_at`、`seven_day.resets_at` |
-| Freshness model | QuotaPulse 可按需啟動 app-server 取得新資料 | 只能在 Claude Code status-line event 發生時更新；可能 stale |
-| Authentication | 必要，但由 Codex process 管理；QuotaPulse 不讀 token | 產生資料時需要合資格的 Claude.ai session；bridge 與 provider 不讀 token |
-| Provider 私有檔案 | 不需要 | bridge setup 需要明確處理 settings；runtime provider 只讀 QuotaPulse snapshot |
+| Freshness model | QuotaMew 可按需啟動 app-server 取得新資料 | 只能在 Claude Code status-line event 發生時更新；可能 stale |
+| Authentication | 必要，但由 Codex process 管理；QuotaMew 不讀 token | 產生資料時需要合資格的 Claude.ai session；bridge 與 provider 不讀 token |
+| Provider 私有檔案 | 不需要 | bridge setup 需要明確處理 settings；runtime provider 只讀 QuotaMew snapshot |
 | 私密內容風險 | 低，只解碼指定 response 且不保存 raw output | status-line raw JSON 含 workspace/session 等欄位；bridge 必須立即白名單化並捨棄其餘欄位 |
-| Polling | 不需要；啟動、資料過期或手動刷新時按需查詢 | 不需要；event-driven capture，QuotaPulse 只在需要時讀小型 snapshot |
+| Polling | 不需要；啟動、資料過期或手動刷新時按需查詢 | 不需要；event-driven capture，QuotaMew 只在需要時讀小型 snapshot |
 | Production readiness | 兩者中較高；已有官方 pull-style machine contract 與 sanitized live probe | 較低；需要可逆 bridge setup、支援版本、方案資格、first-response 與缺欄位處理 |
-| 建議 fallback | QuotaPulse last-known normalized snapshot，標示 stale | QuotaPulse last-known bridge snapshot，標示 stale |
+| 建議 fallback | QuotaMew last-known normalized snapshot，標示 stale | QuotaMew last-known bridge snapshot，標示 stale |
 | Provider-native fallback | 無；Codex session JSONL 預設停用 | 無；不得 fallback 到 transcript、`/usage` scraping 或 credential-backed endpoint |
 
 官方 contract 參考：[Codex App Server](https://learn.chatgpt.com/docs/app-server)、[Claude Code status line](https://code.claude.com/docs/en/statusline)。
@@ -50,13 +50,13 @@ QuotaPulse 的資料來源必須同時滿足：
 表格縮寫：
 
 - 「Auth」表示取得或產生資料是否需要 authentication。
-- 「Local files」表示 QuotaPulse 是否必須讀取本機檔案。
+- 「Local files」表示 QuotaMew 是否必須讀取本機檔案。
 - 「Polling」的「否」包含使用者刷新、資料過期時的按需查詢，以及 provider 事件驅動更新。
 
 | 資料來源 | 分類 | 實際 % | Reset | Auth | Local files | 私密資訊暴露 | 無預警變更風險 | Polling | 可 bounded／高效率 | Production 決策 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `account/rateLimits/read` | Stable / documented | 是 | 是 | 是，由 Codex 管理 | 否 | 低；不得保存 raw stdout/stderr | 低至中；需相容解碼與版本測試 | 否，按需 | 是；單一健康 process 重用、timeout、單筆 response buffer、stdout 上限 | **Primary** |
-| QuotaPulse last-known normalized snapshot | Stable / documented（QuotaPulse 自有 schema） | 是，來自上次成功結果 | 是，若來源曾提供 | 讀取時否 | 是，只讀 App 自有小檔 | 低；只含正規化 quota fields | 低，由 QuotaPulse 版本化 | 否 | 是；小型原子檔 | **Fallback**，必須標示 capture time 與 stale |
+| QuotaMew last-known normalized snapshot | Stable / documented（QuotaMew 自有 schema） | 是，來自上次成功結果 | 是，若來源曾提供 | 讀取時否 | 是，只讀 App 自有小檔 | 低；只含正規化 quota fields | 低，由 QuotaMew 版本化 | 否 | 是；小型原子檔 | **Fallback**，必須標示 capture time 與 stale |
 | `sessions/**/*.jsonl` 的 `rate_limits` event | Reliable but undocumented；作為產品功能時屬 Experimental | 是，fresh event 可含實際值 | 是，fresh event 可含 timestamp | 讀取時否；產生時需要 Codex session | 是 | 極高；與 prompt、tool output、conversation 混存 | 高；persisted schema 沒有 contract | 可不輪詢，但需找最新檔案／event | 只有 bounded tail read 才勉強可接受 | 預設停用；官方 app-server 存在時沒有合理 fallback 必要 |
 | 互動式 `/status` 畫面 | Fragile | 畫面可能有 | 畫面可能有 | 是 | 否 | 中；可能同時顯示 account/session metadata | 極高；文案、版面、ANSI、終端寬度可變 | 需要反覆啟動／scrape | 可限制輸出，但語意仍不穩定 | 不使用，只供人工比對 |
 | `config.toml` | Not suitable for production | 否 | 否 | 否 | 是 | 中；可能含 command、environment、本機 path | 中 | 否 | 檔案通常小，但沒有 quota value | 不使用 |
@@ -71,7 +71,7 @@ QuotaPulse 的資料來源必須同時滿足：
 
 **Primary source**
 
-使用 `codex app-server` 的 `account/rateLimits/read`。QuotaPulse 只在啟動、使用者手動刷新，或 snapshot 超過 freshness threshold 時按需查詢；健康時重用唯一 process，timeout、cancellation、connection failure 或 App termination 時完整關閉並 reap。它不讀 `~/.codex`，也不保存 raw stdout/stderr。
+使用 `codex app-server` 的 `account/rateLimits/read`。QuotaMew 只在啟動、使用者手動刷新，或 snapshot 超過 freshness threshold 時按需查詢；健康時重用唯一 process，timeout、cancellation、connection failure 或 App termination 時完整關閉並 reap。它不讀 `~/.codex`，也不保存 raw stdout/stderr。
 
 **Fallback source**
 
@@ -95,8 +95,8 @@ Codex session JSONL 不應作 production fallback。它只能列為未來的 exp
 | 資料來源 | 分類 | 實際 % | Reset | Auth | Local files | 私密資訊暴露 | 無預警變更風險 | Polling | 可 bounded／高效率 | Production 決策 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | status-line stdin `rate_limits` | Stable / documented；delivery 條件式 | 是 | 是 | 產生時是；bridge 不碰 credential | capture 本身否 | Raw JSON 風險高，含 workspace/session 等；白名單化後低 | 中；欄位有文件，但受版本、方案、first response 與已知缺欄位問題影響 | 否，event-driven | 是；stdin 與 decode 設上限，立即捨棄未知欄位 | **Primary capture source** |
-| QuotaPulse-owned versioned snapshot | Stable / documented（QuotaPulse 自有 schema）；bridge setup 屬 Experimental | 是，來自 status-line | 是，若來源提供 | 讀取時否 | 是，只讀 App 自有小檔 | 低；只保存白名單 quota fields | 低，由 QuotaPulse 控制；上游仍可能缺欄位 | 否 | 是；小型、owner-only、atomic replace | **Primary runtime source 與 fallback** |
-| `/usage`、`/cost`、`/stats` TUI | Fragile | 是，畫面含 plan bars | 是，畫面可顯示 reset | 是 | 可能使用內部 cache，但 QuotaPulse 不需讀 | 中至高；同畫面有 account、activity、cost data | 極高；interactive layout 與文案可變 | 若自動化就需反覆開啟 | 可限制 process output，但無 machine contract | 不解析；只供使用者人工確認 |
+| QuotaPulse-owned versioned snapshot | Stable / documented（QuotaMew 自有 schema）；bridge setup 屬 Experimental | 是，來自 status-line | 是，若來源提供 | 讀取時否 | 是，只讀 App 自有小檔 | 低；只保存白名單 quota fields | 低，由 QuotaMew 控制；上游仍可能缺欄位 | 否 | 是；小型、owner-only、atomic replace | **Primary runtime source 與 fallback** |
+| `/usage`、`/cost`、`/stats` TUI | Fragile | 是，畫面含 plan bars | 是，畫面可顯示 reset | 是 | 可能使用內部 cache，但 QuotaMew 不需讀 | 中至高；同畫面有 account、activity、cost data | 極高；interactive layout 與文案可變 | 若自動化就需反覆開啟 | 可限制 process output，但無 machine contract | 不解析；只供使用者人工確認 |
 | Agent SDK `RateLimitEvent` | Stable / documented，但不適合被動查詢 | 有時有 `utilization` | 有時有 `resets_at` | 是 | 否 | 中；active agent session 會產生 conversation／event data | 低至中；SDK type 有 contract | 需等待 active session event | event 可 bounded，但啟動 agent 的成本不合理 | 不為 quota monitor 啟動 Agent SDK |
 | `stats-cache.json` | Not suitable for production | 否；只有活動／token stats | 否 | 否 | 是 | 中；使用行為 metadata | 高；internal cache | 若追蹤就需重讀 | 檔案小，但不能代表跨裝置 plan quota | 不使用、不推估 |
 | `projects/**/*.jsonl` transcripts | Not suitable for production | 未承諾 | 未承諾 | 讀取時否 | 是 | 極高；prompt、response、tool、workspace 資料 | 極高；internal transcript schema | 可不輪詢，但需搜尋大量檔案 | 不符合；本機樣本接近 90 MiB，最大單檔超過 30 MiB | 永不掃描 |

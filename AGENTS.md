@@ -1,12 +1,12 @@
 # AGENTS.md
 
-These instructions apply to the entire QuotaPulse repository.
+These instructions apply to the entire QuotaMew repository.
 
 ## Project state
 
-QuotaPulse is a native macOS menu bar app for monitoring AI coding-agent quota windows. Read `README.md`, `README.zh-TW.md`, `ARCHITECTURE.md`, and `ROADMAP.md` before making architectural or provider-integration changes.
+QuotaMew is a native macOS menu bar app for monitoring AI coding-agent quota windows. Read `README.md`, `README.zh-TW.md`, `ARCHITECTURE.md`, and `ROADMAP.md` before making architectural or provider-integration changes.
 
-QuotaPulse v0.1 functionality is complete. Production assembly uses the Codex app-server-backed provider and the Claude Code QuotaPulse-owned snapshot reader through normalized provider state; SwiftUI previews remain mock-only. The Claude opt-in status-line bridge and live subscribed-account validation are not implemented, so Claude Code remains Experimental / Unverified. Do not jump directly to bridge installation, Reset Intelligence, cloud services, or release automation unless the user explicitly changes scope.
+QuotaMew v0.1 functionality is complete. Production assembly uses the Codex app-server-backed provider and the Claude Code legacy QuotaPulse-owned snapshot reader through normalized provider state; SwiftUI previews remain mock-only. The Claude opt-in status-line bridge and live subscribed-account validation are not implemented, so Claude Code remains Experimental / Unverified. Do not jump directly to bridge installation, Reset Intelligence, cloud services, or release automation unless the user explicitly changes scope.
 
 ## Language and naming
 

@@ -1,6 +1,6 @@
 # Reset Intelligence Feed Contract
 
-狀態：**v0.2 Milestone A frozen contract**（2026-08-31）。本文件定義未來由 QuotaPulse 讀取的公開、靜態 JSON feed；本里程碑沒有 reader、cache、ETag、URLSession、排程或 UI。
+狀態：**v0.2 Milestone A frozen contract**（2026-08-31）。本文件定義未來由 QuotaMew 讀取的公開、靜態 JSON feed；本里程碑沒有 reader、cache、ETag、URLSession、排程或 UI。
 
 ## 邊界與資料流
 
@@ -73,7 +73,7 @@ Feed 是不可信輸入。任何 schema 或內部一致性錯誤都拒絕**整�
 
 可接受來源只有：官方 provider documentation、官方 provider status/help pages，以及可歸屬的 provider employee/team account。每筆接受事件都必須有原始 source URL、publisher、可得時的 publication timestamp 與 maintainer review。維護者應保留足夠 review context 以判斷來源、時間、audience、revision 和 correction/retraction 是否正確。
 
-AI 可以協助維護者尋找或摘要候選；AI 不得自行發布 event、標記 verification、替換 source、發明 effective time，或判定使用者 eligibility。static feed 是公開資料，不含 QuotaPulse usage、帳號、裝置、workspace、prompt、repository path、transcript 或 token。未來 feed request 也不得夾帶那些資料。
+AI 可以協助維護者尋找或摘要候選；AI 不得自行發布 event、標記 verification、替換 source、發明 effective time，或判定使用者 eligibility。static feed 是公開資料，不含 QuotaMew usage、帳號、裝置、workspace、prompt、repository path、transcript 或 token。未來 feed request 也不得夾帶那些資料。
 
 更正以同 ID 較高 revision 或經 review 的 `correction` 發布；撤回必須保留自己的 publisher/sourceURL 與 `retraction` 關係。維護者不可刪除已發布事件來隱藏修正；後續 active-presentation policy 才依這些關係決定顯示。
 
