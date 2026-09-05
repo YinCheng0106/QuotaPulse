@@ -37,3 +37,6 @@ security-scan-output/
 *.der
 *.mobileprovision
 *.provisionprofile
+
+dist/
+release/
